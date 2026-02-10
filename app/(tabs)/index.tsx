@@ -1,3 +1,6 @@
+import { useEffect } from 'react';
+import { UsageModule } from '@/lib/UsageModule';
+
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Platform } from 'react-native';
 import { Ionicons, Feather } from '@expo/vector-icons';
@@ -18,6 +21,11 @@ function formatTime(minutes: number): string {
 }
 
 export default function DashboardScreen() {
+  useEffect(() => {
+    UsageModule.hello('Hello Android!', (response) => {
+      console.log('ANDROID SAYS:', response);
+    });
+  }, []);
   const c = Colors.dark;
   const insets = useSafeAreaInsets();
   const { apps, settings, totalScreenTime, totalOpens, totalNotifications, dailyBonusMinutes } = useWellbeing();
