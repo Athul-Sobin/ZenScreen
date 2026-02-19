@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Colors from '@/constants/colors';
 import { useWellbeing } from '@/lib/wellbeing-context';
+import { GrayscaleOverlay } from '@/components/GrayscaleOverlay';
 import * as Haptics from 'expo-haptics';
 import * as Crypto from 'expo-crypto';
 
@@ -14,7 +15,7 @@ export default function FocusScreen() {
   const c = Colors.dark;
   const insets = useSafeAreaInsets();
   const topInset = Platform.OS === 'web' ? 67 : insets.top;
-  const { apps, saveFocusSession } = useWellbeing();
+  const { apps, saveFocusSession, activeFocusSession, setActiveFocusSession } = useWellbeing();
 
   const [focusState, setFocusState] = useState<FocusState>('idle');
   const [selectedApps, setSelectedApps] = useState<string[]>([]);
@@ -23,6 +24,25 @@ export default function FocusScreen() {
   const [focusDuration, setFocusDuration] = useState(25);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startTimeRef = useRef<number>(0);
+
+  // Restore active session on mount
+  useEffect(() => {
+    const restoreSession = async () => {
+      if (activeFocusSession && activeFocusSession.endTime > Date.now()) {
+        // Session still active
+        setFocusState('active');
+        startTimeRef.current = activeFocusSession.startTime;
+        setGrayscaleEnabled(activeFocusSession.grayscaleEnabled || false);
+        // Set selected apps to blocked apps from session
+        if (activeFocusSession.blockedApps) {
+          setSelectedApps(activeFocusSession.blockedApps);
+        }
+        // Calculate elapsed time
+        setElapsed(Math.floor((Date.now() - activeFocusSession.startTime) / 1000));
+      }
+    };
+    restoreSession();
+  }, [activeFocusSession]);
 
   const socialApps = apps.filter(a => a.category === 'Social' || a.isShortForm);
   const otherApps = apps.filter(a => a.category !== 'Social' && !a.isShortForm);
@@ -54,6 +74,20 @@ export default function FocusScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setFocusState('active');
     setElapsed(0);
+    // Save to context for persistence
+    const session = {
+      id: Crypto.randomUUID(),
+      startTime: Date.now(),
+      endTime: Date.now() + focusDuration * 60 * 1000,
+      duration: focusDuration * 60,
+      blockedApps: selectedApps,
+      grayscaleEnabled,
+      completed: false,
+      appId: 'focus', // Virtual focus app ID
+      appName: 'Focus Mode',
+    };
+    startTimeRef.current = session.startTime;
+    setActiveFocusSession(session as any);
   };
 
   const handleComplete = async () => {
@@ -69,7 +103,8 @@ export default function FocusScreen() {
       grayscaleEnabled,
       completed: true,
     };
-    await saveFocusSession(session);
+    await saveFocusSession(session as any);
+    await setActiveFocusSession(null);
   };
 
   const handleStop = async () => {
@@ -77,6 +112,7 @@ export default function FocusScreen() {
     if (intervalRef.current) clearInterval(intervalRef.current);
     setFocusState('idle');
     setElapsed(0);
+    // Save final session and clear active session
     const session = {
       id: Crypto.randomUUID(),
       startTime: startTimeRef.current,
@@ -86,7 +122,8 @@ export default function FocusScreen() {
       grayscaleEnabled,
       completed: false,
     };
-    await saveFocusSession(session);
+    await saveFocusSession(session as any);
+    await setActiveFocusSession(null);
   };
 
   const handleReset = () => {
@@ -106,6 +143,7 @@ export default function FocusScreen() {
   if (focusState === 'active') {
     return (
       <View style={[styles.container, { backgroundColor: c.background }]}>
+        <GrayscaleOverlay enabled={grayscaleEnabled} opacity={0.4} />
         <LinearGradient colors={['#0a1f18', c.background]} style={[styles.activeContainer, { paddingTop: topInset + 40 }]}>
           <View style={styles.activeTop}>
             <View style={[styles.breatheCircle, { borderColor: c.tint + '30' }]}>

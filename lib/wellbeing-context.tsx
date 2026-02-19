@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, ReactNode } from 'react';
-import { AppUsageData, FocusSession, SleepRecord, UserSettings, PuzzleExtension } from './types';
+import { AppUsageData, FocusSession, SleepRecord, UserSettings, PuzzleExtension, BlockRule } from './types';
 import * as Storage from './storage';
 
 interface WellbeingContextValue {
@@ -9,6 +9,11 @@ interface WellbeingContextValue {
   sleepRecords: SleepRecord[];
   puzzleExtensions: PuzzleExtension[];
   dailyBonusMinutes: number;
+  blockRules: BlockRule[];
+  blueLightEnabled: boolean;
+  blueLightIntensity: number;
+  blueLightAutoSchedule: boolean;
+  activeFocusSession: FocusSession | null;
   isLoading: boolean;
   totalScreenTime: number;
   totalOpens: number;
@@ -18,6 +23,10 @@ interface WellbeingContextValue {
   saveFocusSession: (session: FocusSession) => Promise<void>;
   updatePuzzleExtensions: (extensions: PuzzleExtension[]) => Promise<void>;
   updateDailyBonus: (minutes: number) => Promise<void>;
+  updateBlockRules: (rules: BlockRule[]) => Promise<void>;
+  updateBlueLightSettings: (enabled: boolean, intensity: number, autoSchedule: boolean) => Promise<void>;
+  setActiveFocusSession: (session: FocusSession | null) => Promise<void>;
+  saveSleepRecord: (record: SleepRecord) => Promise<void>;
   refreshData: () => Promise<void>;
 }
 
@@ -38,17 +47,24 @@ export function WellbeingProvider({ children }: { children: ReactNode }) {
   const [sleepRecords, setSleepRecords] = useState<SleepRecord[]>([]);
   const [puzzleExtensions, setPuzzleExtensions] = useState<PuzzleExtension[]>([]);
   const [dailyBonusMinutes, setDailyBonusMinutes] = useState(0);
+  const [blockRules, setBlockRules] = useState<BlockRule[]>([]);
+  const [blueLightEnabled, setBlueLightEnabled] = useState(false);
+  const [blueLightIntensity, setBlueLightIntensity] = useState(50);
+  const [blueLightAutoSchedule, setBlueLightAutoSchedule] = useState(false);
+  const [activeFocusSession, setActiveFocusSessionState] = useState<FocusSession | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const loadData = useCallback(async () => {
     try {
-      const [s, a, f, sl, pe, db] = await Promise.all([
+      const [s, a, f, sl, pe, db, br, afs] = await Promise.all([
         Storage.getSettings(),
         Storage.getApps(),
         Storage.getFocusSessions(),
         Storage.getSleepRecords(),
         Storage.getPuzzleExtensions(),
         Storage.getDailyBonusMinutes(),
+        Storage.getBlockRules(),
+        Storage.getActiveFocusSession(),
       ]);
       setSettings(s);
       setApps(a);
@@ -56,6 +72,12 @@ export function WellbeingProvider({ children }: { children: ReactNode }) {
       setSleepRecords(sl);
       setPuzzleExtensions(pe);
       setDailyBonusMinutes(db);
+      setBlockRules(br);
+      setActiveFocusSessionState(afs);
+      // Load blue light settings from UserSettings
+      setBlueLightEnabled(s.blueLightEnabled || false);
+      setBlueLightIntensity(s.blueLightIntensity || 50);
+      setBlueLightAutoSchedule(s.blueLightAutoSchedule || false);
     } catch (e) {
       console.error('Failed to load data', e);
     } finally {
@@ -101,6 +123,36 @@ export function WellbeingProvider({ children }: { children: ReactNode }) {
     await Storage.saveDailyBonusMinutes(minutes);
   }, []);
 
+  const updateBlockRules = useCallback(async (rules: BlockRule[]) => {
+    setBlockRules(rules);
+    await Storage.saveBlockRules(rules);
+  }, []);
+
+  const updateBlueLightSettings = useCallback(async (enabled: boolean, intensity: number, autoSchedule: boolean) => {
+    setBlueLightEnabled(enabled);
+    setBlueLightIntensity(intensity);
+    setBlueLightAutoSchedule(autoSchedule);
+    await updateSettings({
+      blueLightEnabled: enabled,
+      blueLightIntensity: intensity,
+      blueLightAutoSchedule: autoSchedule,
+    });
+  }, [updateSettings]);
+
+  const setActiveFocusSessionCb = useCallback(async (session: FocusSession | null) => {
+    setActiveFocusSessionState(session);
+    if (session) {
+      await Storage.saveActiveFocusSession(session);
+    } else {
+      await Storage.clearActiveFocusSession();
+    }
+  }, []);
+
+  const saveSleepRecordCb = useCallback(async (record: SleepRecord) => {
+    setSleepRecords(prev => [...prev, record]);
+    await Storage.saveSleepRecord(record);
+  }, []);
+
   const totalScreenTime = useMemo(() => apps.reduce((sum, a) => sum + a.usageMinutes, 0), [apps]);
   const totalOpens = useMemo(() => apps.reduce((sum, a) => sum + a.opens, 0), [apps]);
   const totalNotifications = useMemo(() => apps.reduce((sum, a) => sum + a.notifications, 0), [apps]);
@@ -112,6 +164,11 @@ export function WellbeingProvider({ children }: { children: ReactNode }) {
     sleepRecords,
     puzzleExtensions,
     dailyBonusMinutes,
+    blockRules,
+    blueLightEnabled,
+    blueLightIntensity,
+    blueLightAutoSchedule,
+    activeFocusSession,
     isLoading,
     totalScreenTime,
     totalOpens,
@@ -121,8 +178,12 @@ export function WellbeingProvider({ children }: { children: ReactNode }) {
     saveFocusSession: saveFocusSessionCb,
     updatePuzzleExtensions,
     updateDailyBonus,
+    updateBlockRules,
+    updateBlueLightSettings,
+    setActiveFocusSession: setActiveFocusSessionCb,
+    saveSleepRecord: saveSleepRecordCb,
     refreshData: loadData,
-  }), [settings, apps, focusSessions, sleepRecords, puzzleExtensions, dailyBonusMinutes, isLoading, totalScreenTime, totalOpens, totalNotifications, updateSettings, updateApp, saveFocusSessionCb, updatePuzzleExtensions, updateDailyBonus, loadData]);
+  }), [settings, apps, focusSessions, sleepRecords, puzzleExtensions, dailyBonusMinutes, blockRules, blueLightEnabled, blueLightIntensity, blueLightAutoSchedule, activeFocusSession, isLoading, totalScreenTime, totalOpens, totalNotifications, updateSettings, updateApp, saveFocusSessionCb, updatePuzzleExtensions, updateDailyBonus, updateBlockRules, updateBlueLightSettings, setActiveFocusSessionCb, saveSleepRecordCb, loadData]);
 
   return (
     <WellbeingContext.Provider value={value}>

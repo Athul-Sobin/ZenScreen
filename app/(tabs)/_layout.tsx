@@ -22,6 +22,10 @@ function NativeTabLayout() {
         <Icon sf={{ default: "moon", selected: "moon.fill" }} md="bedtime" />
         <Label>Sleep</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="blocker">
+        <Icon sf={{ default: "lock.open", selected: "lock.fill" }} md="privacy-tip" />
+        <Label>Blocker</Label>
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="settings">
         <Icon sf={{ default: "gearshape", selected: "gearshape.fill" }} md="settings" />
         <Label>Settings</Label>
@@ -85,6 +89,15 @@ function ClassicTabLayout() {
           title: "Sleep",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? "moon" : "moon-outline"} size={22} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="blocker"
+        options={{
+          title: "Blocker",
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? "lock-closed" : "lock-closed-outline"} size={22} color={color} />
           ),
         }}
       />

@@ -1,41 +1,60 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Platform, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Colors from '@/constants/colors';
 import { useWellbeing } from '@/lib/wellbeing-context';
+import * as Haptics from 'expo-haptics';
 
 export default function SleepScreen() {
   const c = Colors.dark;
   const insets = useSafeAreaInsets();
   const topInset = Platform.OS === 'web' ? 67 : insets.top;
-  const { sleepRecords } = useWellbeing();
+  const { sleepRecords, saveSleepRecord } = useWellbeing();
+
+  const formatTime = (timestamp: number): string => {
+    const date = new Date(timestamp);
+    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+  };
+
+  const formatDate = (timestamp: number): string => {
+    const date = new Date(timestamp);
+    return date.toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric' });
+  };
 
   const avgSleep = useMemo(() => {
     if (sleepRecords.length === 0) return 0;
-    return sleepRecords.reduce((sum, r) => sum + r.durationHours, 0) / sleepRecords.length;
+    const totalMinutes = sleepRecords.reduce((sum, r) => sum + r.durationMinutes, 0);
+    return totalMinutes / sleepRecords.length / 60; // Convert to hours
   }, [sleepRecords]);
 
-  const maxHours = useMemo(() => Math.max(...sleepRecords.map(r => r.durationHours), 10), [sleepRecords]);
-  const lastNight = sleepRecords.length > 0 ? sleepRecords[sleepRecords.length - 1] : null;
+  const maxHours = useMemo(() => {
+    const maxMinutes = Math.max(...sleepRecords.map(r => r.durationMinutes), 480); // 8 hours default
+    return maxMinutes / 60;
+  }, [sleepRecords]);
 
-  const qualityColor = (q: string) => {
-    switch (q) {
-      case 'excellent': return c.success;
-      case 'good': return c.tint;
-      case 'fair': return c.accent;
-      case 'poor': return c.warning;
-      default: return c.textMuted;
-    }
+  const lastNight = useMemo(() => sleepRecords.length > 0 ? sleepRecords[sleepRecords.length - 1] : null, [sleepRecords]);
+
+  const qualityColor = (quality?: number): string => {
+    if (quality === undefined) return c.textMuted;
+    if (quality >= 4) return c.success;
+    if (quality >= 3) return c.tint;
+    if (quality >= 2) return c.accent;
+    return c.warning;
   };
 
   const sleepScore = useMemo(() => {
     if (!lastNight) return 0;
-    const ideal = 8;
-    const diff = Math.abs(lastNight.durationHours - ideal);
-    return Math.max(0, Math.round(100 - diff * 15));
+    const idealMinutes = 8 * 60;
+    const diff = Math.abs(lastNight.durationMinutes - idealMinutes);
+    return Math.max(0, Math.round(100 - (diff / idealMinutes) * 100));
   }, [lastNight]);
+
+  const handleLogSleep = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    // TODO: Open modal for manual sleep entry
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: c.background }]}>
@@ -60,7 +79,7 @@ export default function SleepScreen() {
             <View style={{ flex: 1, marginLeft: 14 }}>
               <Text style={[styles.lastNightLabel, { color: c.textMuted }]}>Last Night</Text>
               <Text style={[styles.lastNightTime, { color: c.text }]}>
-                {lastNight ? `${lastNight.durationHours}h` : '--'}
+                {lastNight ? `${(lastNight.durationMinutes / 60).toFixed(1)}h` : 'No data'}
               </Text>
             </View>
             <View style={styles.scoreContainer}>
@@ -75,25 +94,33 @@ export default function SleepScreen() {
             <View style={styles.timeRow}>
               <View style={styles.timeItem}>
                 <Ionicons name="bed-outline" size={16} color={c.purple} />
-                <Text style={[styles.timeValue, { color: c.textSecondary }]}>{lastNight.bedtime}</Text>
+                <Text style={[styles.timeValue, { color: c.textSecondary }]}>{formatTime(lastNight.startTime)}</Text>
                 <Text style={[styles.timeLabel, { color: c.textMuted }]}>Bedtime</Text>
               </View>
               <View style={[styles.timeDivider, { backgroundColor: c.border }]} />
               <View style={styles.timeItem}>
                 <Ionicons name="sunny-outline" size={16} color={c.accent} />
-                <Text style={[styles.timeValue, { color: c.textSecondary }]}>{lastNight.wakeTime}</Text>
+                <Text style={[styles.timeValue, { color: c.textSecondary }]}>{formatTime(lastNight.endTime)}</Text>
                 <Text style={[styles.timeLabel, { color: c.textMuted }]}>Wake Up</Text>
               </View>
               <View style={[styles.timeDivider, { backgroundColor: c.border }]} />
               <View style={styles.timeItem}>
-                <Ionicons name="pulse-outline" size={16} color={qualityColor(lastNight.quality)} />
-                <Text style={[styles.timeValue, { color: qualityColor(lastNight.quality) }]}>
-                  {lastNight.quality.charAt(0).toUpperCase() + lastNight.quality.slice(1)}
+                <Ionicons name="pulse-outline" size={16} color={qualityColor(lastNight.qualityRating)} />
+                <Text style={[styles.timeValue, { color: qualityColor(lastNight.qualityRating) }]}>
+                  {lastNight.qualityRating ? `${lastNight.qualityRating}/5` : 'Unrated'}
                 </Text>
                 <Text style={[styles.timeLabel, { color: c.textMuted }]}>Quality</Text>
               </View>
             </View>
           )}
+
+          <Pressable
+            onPress={handleLogSleep}
+            style={({ pressed }) => [styles.logButton, { opacity: pressed ? 0.8 : 1 }]}
+          >
+            <Ionicons name="add-circle-outline" size={20} color={c.tint} />
+            <Text style={[styles.logButtonText, { color: c.tint }]}>Log Manual Sleep</Text>
+          </Pressable>
         </LinearGradient>
 
         <View style={styles.sectionHeader}>
@@ -105,9 +132,9 @@ export default function SleepScreen() {
 
         <View style={[styles.chartContainer, { backgroundColor: c.surface }]}>
           <View style={styles.chart}>
-            {sleepRecords.map((record, i) => {
-              const barHeight = (record.durationHours / maxHours) * 120;
-              const isToday = i === sleepRecords.length - 1;
+            {sleepRecords.slice(-7).map((record, i) => {
+              const barHeight = (record.durationMinutes / 60 / maxHours) * 120;
+              const isRecent = i === sleepRecords.length - 1;
               return (
                 <View key={record.id} style={styles.chartBar}>
                   <View style={styles.barWrapper}>
@@ -115,15 +142,19 @@ export default function SleepScreen() {
                       style={[
                         styles.bar,
                         {
-                          height: barHeight,
-                          backgroundColor: isToday ? c.purple : c.purple + '40',
+                          height: Math.max(barHeight, 4),
+                          backgroundColor: isRecent ? c.purple : c.purple + '40',
                           borderRadius: 6,
                         },
                       ]}
                     />
                   </View>
-                  <Text style={[styles.barLabel, { color: isToday ? c.text : c.textMuted }]}>{record.date}</Text>
-                  <Text style={[styles.barValue, { color: c.textMuted }]}>{record.durationHours}h</Text>
+                  <Text style={[styles.barLabel, { color: isRecent ? c.text : c.textMuted }]}>
+                    {formatDate(record.startTime).split(' ')[0]}
+                  </Text>
+                  <Text style={[styles.barValue, { color: c.textMuted }]}>
+                    {(record.durationMinutes / 60).toFixed(1)}h
+                  </Text>
                 </View>
               );
             })}
@@ -170,11 +201,13 @@ const styles = StyleSheet.create({
   scoreContainer: { alignItems: 'center' },
   scoreValue: { fontSize: 28, fontFamily: 'DMSans_700Bold' },
   scoreLabel: { fontSize: 11, fontFamily: 'DMSans_400Regular' },
-  timeRow: { flexDirection: 'row', alignItems: 'center' },
+  timeRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
   timeItem: { flex: 1, alignItems: 'center', gap: 4 },
   timeDivider: { width: 1, height: 32 },
   timeValue: { fontSize: 14, fontFamily: 'DMSans_600SemiBold' },
   timeLabel: { fontSize: 11, fontFamily: 'DMSans_400Regular' },
+  logButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12 },
+  logButtonText: { fontSize: 14, fontFamily: 'DMSans_600SemiBold' },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, marginTop: 8 },
   sectionTitle: { fontSize: 16, fontFamily: 'DMSans_700Bold' },
   avgText: { fontSize: 13, fontFamily: 'DMSans_500Medium' },

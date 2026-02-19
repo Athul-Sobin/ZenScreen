@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Platform, Switch, TextInput, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Platform, Switch, TextInput, Alert, Slider } from 'react-native';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Colors from '@/constants/colors';
@@ -11,7 +11,7 @@ export default function SettingsScreen() {
   const c = Colors.dark;
   const insets = useSafeAreaInsets();
   const topInset = Platform.OS === 'web' ? 67 : insets.top;
-  const { settings, updateSettings } = useWellbeing();
+  const { settings, updateSettings, blueLightEnabled, blueLightIntensity, updateBlueLightSettings } = useWellbeing();
 
   const [editingWarning, setEditingWarning] = useState(false);
   const [warningDraft, setWarningDraft] = useState(settings.warningMessage);
@@ -190,6 +190,120 @@ export default function SettingsScreen() {
               }}
               trackColor={{ false: c.border, true: c.tintDark }}
               thumbColor={settings.focusReminderEnabled ? c.tint : c.textMuted}
+            />
+          </View>
+        </View>
+
+        <Text style={[styles.sectionLabel, { color: c.textMuted }]}>SLEEP SCHEDULE</Text>
+
+        <View style={[styles.settingCard, { backgroundColor: c.surface }]}>
+          <View style={styles.settingRow}>
+            <View style={[styles.settingIcon, { backgroundColor: c.purpleLight }]}>
+              <Ionicons name="moon-outline" size={18} color={c.purple} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.settingTitle, { color: c.text }]}>Auto Sleep Detection</Text>
+              <Text style={[styles.settingValue, { color: c.textMuted }]}>Track sleep via app background</Text>
+            </View>
+            <Switch
+              value={settings.autoSleepDetectionEnabled}
+              onValueChange={(v) => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                updateSettings({ autoSleepDetectionEnabled: v });
+              }}
+              trackColor={{ false: c.border, true: c.tintDark }}
+              thumbColor={settings.autoSleepDetectionEnabled ? c.tint : c.textMuted}
+            />
+          </View>
+        </View>
+
+        <View style={[styles.settingCard, { backgroundColor: c.surface }]}>
+          <View style={styles.settingRow}>
+            <View style={[styles.settingIcon, { backgroundColor: c.purpleLight }]}>
+              <Ionicons name="bed-outline" size={18} color={c.purple} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.settingTitle, { color: c.text }]}>Bedtime Reminder</Text>
+              <Text style={[styles.settingValue, { color: c.textMuted }]}>
+                {settings.sleepBedtime || 'Not set'}
+              </Text>
+            </View>
+            <Switch
+              value={settings.bedtimeReminderEnabled}
+              onValueChange={(v) => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                updateSettings({ bedtimeReminderEnabled: v });
+              }}
+              trackColor={{ false: c.border, true: c.tintDark }}
+              thumbColor={settings.bedtimeReminderEnabled ? c.tint : c.textMuted}
+            />
+          </View>
+        </View>
+
+        <Text style={[styles.sectionLabel, { color: c.textMuted }]}>BLUE LIGHT FILTER</Text>
+
+        <View style={[styles.settingCard, { backgroundColor: c.surface }]}>
+          <View style={styles.settingRow}>
+            <View style={[styles.settingIcon, { backgroundColor: c.warningLight }]}>
+              <Ionicons name="sunny-outline" size={18} color={c.warning} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.settingTitle, { color: c.text }]}>Blue Light Filter</Text>
+              <Text style={[styles.settingValue, { color: c.textMuted }]}>Reduce eye strain</Text>
+            </View>
+            <Switch
+              value={blueLightEnabled}
+              onValueChange={(v) => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                updateBlueLightSettings(v, blueLightIntensity, settings.blueLightAutoSchedule);
+              }}
+              trackColor={{ false: c.border, true: c.tintDark }}
+              thumbColor={blueLightEnabled ? c.tint : c.textMuted}
+            />
+          </View>
+        </View>
+
+        {blueLightEnabled && (
+          <View style={[styles.settingCard, { backgroundColor: c.surface }]}>
+            <View style={[styles.settingRow, { gap: 16 }]}>
+              <View style={[styles.settingIcon, { backgroundColor: c.warningLight }]}>
+                <Ionicons name="contrast-outline" size={18} color={c.warning} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.settingTitle, { color: c.text }]}>Intensity: {blueLightIntensity}%</Text>
+                <Slider
+                  style={{ height: 40, marginTop: 8 }}
+                  minimumValue={0}
+                  maximumValue={100}
+                  step={5}
+                  value={blueLightIntensity}
+                  onValueChange={(v) => updateBlueLightSettings(blueLightEnabled, v, settings.blueLightAutoSchedule)}
+                  minimumTrackTintColor={c.tint}
+                  maximumTrackTintColor={c.border}
+                  thumbTintColor={c.tint}
+                />
+              </View>
+            </View>
+          </View>
+        )}
+
+        <View style={[styles.settingCard, { backgroundColor: c.surface }]}>
+          <View style={styles.settingRow}>
+            <View style={[styles.settingIcon, { backgroundColor: c.successLight }]}>
+              <Ionicons name="calendar-outline" size={18} color={c.success} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.settingTitle, { color: c.text }]}>Auto Schedule</Text>
+              <Text style={[styles.settingValue, { color: c.textMuted }]}>Follow bedtime</Text>
+            </View>
+            <Switch
+              value={settings.blueLightAutoSchedule}
+              onValueChange={(v) => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                updateSettings({ blueLightAutoSchedule: v });
+              }}
+              trackColor={{ false: c.border, true: c.tintDark }}
+              thumbColor={settings.blueLightAutoSchedule ? c.tint : c.textMuted}
             />
           </View>
         </View>

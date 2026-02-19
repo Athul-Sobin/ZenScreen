@@ -15,9 +15,12 @@ export interface AppUsageData {
 
 export interface FocusSession {
   id: string;
+  appId?: string; // For focus app identification
+  appName?: string; // Display name for focus session
   startTime: number;
-  endTime: number | null;
-  duration: number;
+  endTime: number;
+  durationMinutes?: number; // Duration in minutes for display
+  duration: number; // Duration in seconds
   blockedApps: string[];
   grayscaleEnabled: boolean;
   completed: boolean;
@@ -25,11 +28,18 @@ export interface FocusSession {
 
 export interface SleepRecord {
   id: string;
-  date: string;
+  startTime: number;
+  endTime: number;
+  durationMinutes: number;
+  isAutoDetected: boolean;
+  qualityRating?: number;
+}
+
+export interface SleepSchedule {
   bedtime: string;
   wakeTime: string;
-  durationHours: number;
-  quality: 'poor' | 'fair' | 'good' | 'excellent';
+  bedtimeReminderEnabled: boolean;
+  autoDetectionEnabled: boolean;
 }
 
 export interface PuzzleData {
@@ -58,6 +68,13 @@ export interface UserSettings {
   sleepTrackingEnabled: boolean;
   bedtimeReminder: string;
   wakeTimeReminder: string;
+  sleepBedtime: string;
+  sleepWakeTime: string;
+  bedtimeReminderEnabled: boolean;
+  autoSleepDetectionEnabled: boolean;
+  blueLightEnabled: boolean;
+  blueLightIntensity: number;
+  blueLightAutoSchedule: boolean;
 }
 
 export interface DailyStats {
@@ -68,3 +85,28 @@ export interface DailyStats {
   focusMinutes: number;
   bonusMinutesEarned: number;
 }
+
+export interface BlockRule {
+  appId: string;
+  appName: string;
+  mode: 'full_block' | 'time_limit' | 'unrestricted';
+  dailyLimitMinutes?: number;
+}
+
+export interface AppBlockingSession {
+  appId: string;
+  startTime: number;
+  endTime?: number;
+}
+
+export interface BlockingState {
+  rules: BlockRule[];
+  activeFocusSession: boolean;
+  focusBlockedApps: string[];
+}
+
+export interface SleepDetectionRecord {
+  screenOffTime: number;
+  screenOnTime?: number;
+}
+
