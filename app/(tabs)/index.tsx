@@ -1,5 +1,11 @@
 import { useEffect } from 'react';
-import { UsageModule } from '@/lib/UsageModule';
+import { NativeModules } from 'react-native';
+
+const { UsageModule } = NativeModules as {
+  UsageModule?: {
+    hello: (message: string, callback: (response: string) => void) => void;
+  };
+};
 
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Platform } from 'react-native';
@@ -21,11 +27,15 @@ function formatTime(minutes: number): string {
 }
 
 export default function DashboardScreen() {
-  useEffect(() => {
-    UsageModule.hello('Hello Android!', (response) => {
+useEffect(() => {
+  if (UsageModule?.hello) {
+    UsageModule.hello('Hello Android!', (response: string) => {
       console.log('ANDROID SAYS:', response);
     });
-  }, []);
+  } else {
+    console.log('UsageModule is not available');
+  }
+}, []);;
   const c = Colors.dark;
   const insets = useSafeAreaInsets();
   const { apps, settings, totalScreenTime, totalOpens, totalNotifications, dailyBonusMinutes } = useWellbeing();

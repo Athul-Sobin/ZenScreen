@@ -207,7 +207,7 @@ export async function clearActiveFocusSession(): Promise<void> {
   await AsyncStorage.removeItem(KEYS.ACTIVE_FOCUS_SESSION);
 }
 
-// Sleep Records (Feature #3 - Sleep Detection)
+/*// Sleep Records (Feature #3 - Sleep Detection)
 export async function getSleepRecords(): Promise<SleepRecord[]> {
   try {
     const data = await AsyncStorage.getItem(KEYS.SLEEP_RECORDS);
@@ -215,7 +215,7 @@ export async function getSleepRecords(): Promise<SleepRecord[]> {
   } catch {
     return [];
   }
-}
+}*/
 
 export async function saveSleepRecord(record: SleepRecord): Promise<void> {
   try {
