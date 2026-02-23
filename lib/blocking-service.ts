@@ -140,7 +140,7 @@ function isFocusingApp(appId: string, focusSession: FocusSession): boolean {
  * Get list of apps allowed during focus (only focus app itself).
  */
 export function getAllowedAppsForFocus(focusSession: FocusSession): string[] {
-  return [focusSession.appId];
+  return focusSession.appId ? [focusSession.appId] : [];
 }
 
 /**

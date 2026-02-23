@@ -22,7 +22,7 @@ interface BlockingOverlayProps {
  * Presents options to:
  * 1. Continue focus (dismiss overlay)
  * 2. Exit focus mode (end session)
- * 
+ *
  * Only shown once per minute per app to avoid modal spam.
  */
 export function BlockingOverlay({
@@ -77,16 +77,18 @@ export function BlockingOverlay({
         {/* Content card */}
         <View style={styles.card}>
           <Text style={styles.title}>Focus Mode Active</Text>
-          
+
           <Text style={styles.focusAppText}>
-            Currently focusing on <Text style={styles.focusAppName}>{focusSession?.appName || 'Focus app'}</Text>
+            Currently focusing on{' '}
+            <Text style={styles.focusAppName}>
+              {focusSession?.appName || 'Focus app'}
+            </Text>
           </Text>
 
           {focusSession && focusSession.durationMinutes && (
             <Text style={styles.timeRemaining}>
-              {Math.ceil(
-                (focusSession.endTime - Date.now()) / 60000
-              )} minutes remaining
+              {Math.ceil((focusSession.endTime - Date.now()) / 60000)} minutes
+              remaining
             </Text>
           )}
 
@@ -109,9 +111,7 @@ export function BlockingOverlay({
             </Pressable>
           </View>
 
-          <Text style={styles.hint}>
-            Tap outside to dismiss
-          </Text>
+          <Text style={styles.hint}>Tap outside to dismiss</Text>
         </View>
       </Animated.View>
     </Modal>
@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   card: {
-    backgroundColor: Colors.darkCard,
+    backgroundColor: Colors.dark.card,        // was: Colors.darkCard
     borderRadius: 20,
     paddingHorizontal: 24,
     paddingVertical: 32,
@@ -136,23 +136,23 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: '700',
-    color: Colors.white,
+    color: Colors.dark.text,                  // was: Colors.white
     marginBottom: 12,
     textAlign: 'center',
   },
   focusAppText: {
     fontSize: 16,
-    color: Colors.textSecondary,
+    color: Colors.dark.textSecondary,         // was: Colors.textSecondary
     marginBottom: 8,
     textAlign: 'center',
   },
   focusAppName: {
-    color: Colors.primary,
+    color: Colors.dark.tint,                  // was: Colors.primary
     fontWeight: '600',
   },
   timeRemaining: {
     fontSize: 14,
-    color: Colors.primary,
+    color: Colors.dark.tint,                  // was: Colors.primary
     textAlign: 'center',
     marginBottom: 24,
     fontWeight: '500',
@@ -168,26 +168,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   continueButton: {
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.dark.tint,        // was: Colors.primary
   },
   continueButtonText: {
-    color: Colors.text,
+    color: Colors.dark.text,                  // was: Colors.text
     fontSize: 16,
     fontWeight: '600',
   },
   exitButton: {
-    backgroundColor: Colors.darkBg,
+    backgroundColor: Colors.dark.background,  // was: Colors.darkBg
     borderWidth: 2,
-    borderColor: Colors.errorRed,
+    borderColor: Colors.dark.danger,          // was: Colors.errorRed
   },
   exitButtonText: {
-    color: Colors.errorRed,
+    color: Colors.dark.danger,                // was: Colors.errorRed
     fontSize: 16,
     fontWeight: '600',
   },
   hint: {
     fontSize: 12,
-    color: Colors.textSecondary,
+    color: Colors.dark.textSecondary,         // was: Colors.textSecondary
     textAlign: 'center',
     marginTop: 16,
     fontStyle: 'italic',
