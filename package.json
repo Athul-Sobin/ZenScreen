@@ -38,6 +38,7 @@
     "expo-linear-gradient": "~15.0.8",
     "expo-linking": "~8.0.10",
     "expo-location": "~19.0.8",
+    "expo-modules-core": "~3.0.29",
     "expo-router": "~6.0.23",
     "expo-splash-screen": "~31.0.12",
     "expo-status-bar": "~3.0.9",
@@ -59,7 +60,8 @@
     "tsx": "^4.20.6",
     "ws": "^8.18.0",
     "zod": "^3.24.2",
-    "zod-validation-error": "^3.4.0"
+    "zod-validation-error": "^3.4.0",
+    "usage-module": "file:./usage-module"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

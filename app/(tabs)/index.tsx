@@ -1,12 +1,3 @@
-import { useEffect } from 'react';
-import { NativeModules } from 'react-native';
-
-const { UsageModule } = NativeModules as {
-  UsageModule?: {
-    hello: (message: string, callback: (response: string) => void) => void;
-  };
-};
-
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Platform } from 'react-native';
 import { Ionicons, Feather } from '@expo/vector-icons';
@@ -26,20 +17,17 @@ function formatTime(minutes: number): string {
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
 
+
 export default function DashboardScreen() {
-useEffect(() => {
-  if (UsageModule?.hello) {
-    UsageModule.hello('Hello Android!', (response: string) => {
-      console.log('ANDROID SAYS:', response);
-    });
-  } else {
-    console.log('UsageModule is not available');
-  }
-}, []);;
   const c = Colors.dark;
   const insets = useSafeAreaInsets();
-  const { apps, settings, totalScreenTime, totalOpens, totalNotifications, dailyBonusMinutes } = useWellbeing();
+  const { apps, settings, dailyBonusMinutes } = useWellbeing();
+
   const topInset = Platform.OS === 'web' ? 67 : insets.top;
+
+  const totalScreenTime = apps.reduce((sum, app) => sum + app.usageMinutes, 0);
+  const totalOpens = apps.reduce((sum, app) => sum + (app.opens || 0), 0);
+const totalNotifications = apps.reduce((sum, app) => sum + (app.notifications || 0), 0);
 
   const dailyGoal = settings.dailyGoalMinutes + dailyBonusMinutes;
   const progress = Math.min(totalScreenTime / dailyGoal, 1);
@@ -79,8 +67,6 @@ useEffect(() => {
         <LinearGradient
           colors={overLimit ? ['#3a1a1a', c.surface] : ['#1a2a28', c.surface]}
           style={styles.mainCard}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
         >
           <View style={styles.ringRow}>
             <ProgressRing
@@ -89,49 +75,47 @@ useEffect(() => {
               strokeWidth={10}
               color={overLimit ? c.warning : c.tint}
             >
-              <Text style={[styles.ringTime, { color: c.text }]}>{formatTime(totalScreenTime)}</Text>
-              <Text style={[styles.ringLabel, { color: c.textSecondary }]}>today</Text>
+              <Text style={[styles.ringTime, { color: c.text }]}>
+                {formatTime(totalScreenTime)}
+              </Text>
+              <Text style={[styles.ringLabel, { color: c.textSecondary }]}>
+                today
+              </Text>
             </ProgressRing>
+
             <View style={styles.ringStats}>
               <View style={styles.statItem}>
                 <Ionicons name="apps-outline" size={16} color={c.tint} />
                 <Text style={[styles.statValue, { color: c.text }]}>{totalOpens}</Text>
                 <Text style={[styles.statLabel, { color: c.textMuted }]}>opens</Text>
               </View>
+
               <View style={styles.statItem}>
                 <Ionicons name="notifications-outline" size={16} color={c.accent} />
                 <Text style={[styles.statValue, { color: c.text }]}>{totalNotifications}</Text>
                 <Text style={[styles.statLabel, { color: c.textMuted }]}>alerts</Text>
               </View>
+
               <View style={styles.statItem}>
                 <Ionicons name="time-outline" size={16} color={overLimit ? c.warning : c.success} />
                 <Text style={[styles.statValue, { color: overLimit ? c.warning : c.text }]}>
-                  {overLimit ? '+' + formatTime(totalScreenTime - dailyGoal) : formatTime(remaining)}
+                  {overLimit
+                    ? '+' + formatTime(totalScreenTime - dailyGoal)
+                    : formatTime(remaining)}
                 </Text>
-                <Text style={[styles.statLabel, { color: c.textMuted }]}>{overLimit ? 'over' : 'left'}</Text>
+                <Text style={[styles.statLabel, { color: c.textMuted }]}>
+                  {overLimit ? 'over' : 'left'}
+                </Text>
               </View>
             </View>
           </View>
-          {dailyBonusMinutes > 0 && (
-            <View style={[styles.bonusBadge, { backgroundColor: c.accentLight }]}>
-              <Ionicons name="extension-puzzle" size={12} color={c.accent} />
-              <Text style={[styles.bonusText, { color: c.accent }]}>+{dailyBonusMinutes}m bonus earned</Text>
-            </View>
-          )}
         </LinearGradient>
-
-        {appsOverLimit.length > 0 && (
-          <View style={[styles.alertCard, { backgroundColor: c.warningLight }]}>
-            <Ionicons name="alert-circle" size={18} color={c.warning} />
-            <Text style={[styles.alertText, { color: c.warning }]}>
-              {appsOverLimit.length} app{appsOverLimit.length > 1 ? 's' : ''} over limit
-            </Text>
-          </View>
-        )}
 
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, { color: c.text }]}>Most Used</Text>
-          <Text style={[styles.sectionSub, { color: c.textMuted }]}>{apps.length} apps tracked</Text>
+          <Text style={[styles.sectionSub, { color: c.textMuted }]}>
+            {apps.length} apps tracked
+          </Text>
         </View>
 
         {topApps.map(app => (
@@ -144,52 +128,6 @@ useEffect(() => {
             }}
           />
         ))}
-
-        <Pressable
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          }}
-          style={({ pressed }) => [styles.viewAllBtn, { borderColor: c.border, opacity: pressed ? 0.7 : 1 }]}
-        >
-          <Text style={[styles.viewAllText, { color: c.textSecondary }]}>View All Apps</Text>
-          <Feather name="chevron-right" size={16} color={c.textMuted} />
-        </Pressable>
-
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: c.text }]}>Quick Actions</Text>
-        </View>
-        <View style={styles.quickActions}>
-          <Pressable
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              router.push('/(tabs)/focus');
-            }}
-            style={({ pressed }) => [styles.quickAction, { backgroundColor: c.tintLight, opacity: pressed ? 0.8 : 1 }]}
-          >
-            <Ionicons name="leaf" size={24} color={c.tint} />
-            <Text style={[styles.quickLabel, { color: c.tint }]}>Focus Mode</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              router.push('/puzzle');
-            }}
-            style={({ pressed }) => [styles.quickAction, { backgroundColor: c.accentLight, opacity: pressed ? 0.8 : 1 }]}
-          >
-            <Ionicons name="extension-puzzle" size={24} color={c.accent} />
-            <Text style={[styles.quickLabel, { color: c.accent }]}>Puzzles</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              router.push('/(tabs)/sleep');
-            }}
-            style={({ pressed }) => [styles.quickAction, { backgroundColor: c.purpleLight, opacity: pressed ? 0.8 : 1 }]}
-          >
-            <Ionicons name="moon" size={24} color={c.purple} />
-            <Text style={[styles.quickLabel, { color: c.purple }]}>Sleep</Text>
-          </Pressable>
-        </View>
       </ScrollView>
     </View>
   );
@@ -199,27 +137,18 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollContent: { paddingHorizontal: 20 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  greeting: { fontSize: 14, fontFamily: 'DMSans_400Regular' },
-  date: { fontSize: 24, fontFamily: 'DMSans_700Bold', marginTop: 2 },
+  greeting: { fontSize: 14 },
+  date: { fontSize: 24, marginTop: 2 },
   puzzleBtn: { width: 42, height: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   mainCard: { borderRadius: 20, padding: 24, marginBottom: 16 },
   ringRow: { flexDirection: 'row', alignItems: 'center', gap: 24 },
-  ringTime: { fontSize: 24, fontFamily: 'DMSans_700Bold' },
-  ringLabel: { fontSize: 12, fontFamily: 'DMSans_400Regular', marginTop: 2 },
+  ringTime: { fontSize: 24 },
+  ringLabel: { fontSize: 12, marginTop: 2 },
   ringStats: { flex: 1, gap: 12 },
   statItem: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  statValue: { fontSize: 16, fontFamily: 'DMSans_700Bold' },
-  statLabel: { fontSize: 12, fontFamily: 'DMSans_400Regular' },
-  bonusBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, marginTop: 14 },
-  bonusText: { fontSize: 12, fontFamily: 'DMSans_600SemiBold' },
-  alertCard: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: 12, marginBottom: 16 },
-  alertText: { fontSize: 14, fontFamily: 'DMSans_600SemiBold' },
+  statValue: { fontSize: 16 },
+  statLabel: { fontSize: 12 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginTop: 8, marginBottom: 12 },
-  sectionTitle: { fontSize: 18, fontFamily: 'DMSans_700Bold' },
-  sectionSub: { fontSize: 12, fontFamily: 'DMSans_400Regular' },
-  viewAllBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 12, borderWidth: 1, marginTop: 4, gap: 4 },
-  viewAllText: { fontSize: 14, fontFamily: 'DMSans_500Medium' },
-  quickActions: { flexDirection: 'row', gap: 10 },
-  quickAction: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 20, borderRadius: 16, gap: 8 },
-  quickLabel: { fontSize: 12, fontFamily: 'DMSans_600SemiBold' },
+  sectionTitle: { fontSize: 18 },
+  sectionSub: { fontSize: 12 },
 });

@@ -1,6 +1,9 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, ReactNode } from 'react';
 import { AppUsageData, FocusSession, SleepRecord, UserSettings, PuzzleExtension, BlockRule } from './types';
 import * as Storage from './storage';
+import { requireNativeModule } from "expo-modules-core";
+
+const UsageModule = requireNativeModule("UsageModule");
 
 interface WellbeingContextValue {
   settings: UserSettings;
@@ -33,15 +36,24 @@ interface WellbeingContextValue {
 const WellbeingContext = createContext<WellbeingContextValue | null>(null);
 
 export function WellbeingProvider({ children }: { children: ReactNode }) {
-  const [settings, setSettings] = useState<UserSettings>({
-    onboardingComplete: false,
-    warningMessage: '',
-    dailyGoalMinutes: 120,
-    focusReminderEnabled: true,
-    sleepTrackingEnabled: true,
-    bedtimeReminder: '22:00',
-    wakeTimeReminder: '07:00',
-  });
+const [settings, setSettings] = useState<UserSettings>({
+  onboardingComplete: false,
+  warningMessage: '',
+  dailyGoalMinutes: 120,
+  focusReminderEnabled: true,
+  sleepTrackingEnabled: true,
+  bedtimeReminder: '22:00',
+  wakeTimeReminder: '07:00',
+
+  // 🔥 Newly required fields
+  sleepBedtime: '22:00',
+  sleepWakeTime: '07:00',
+  bedtimeReminderEnabled: true,
+  autoSleepDetectionEnabled: false,
+  blueLightEnabled: false,
+  blueLightIntensity: 50,
+  blueLightAutoSchedule: false,
+});
   const [apps, setApps] = useState<AppUsageData[]>([]);
   const [focusSessions, setFocusSessions] = useState<FocusSession[]>([]);
   const [sleepRecords, setSleepRecords] = useState<SleepRecord[]>([]);
@@ -55,35 +67,38 @@ export function WellbeingProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   const loadData = useCallback(async () => {
-    try {
-      const [s, a, f, sl, pe, db, br, afs] = await Promise.all([
-        Storage.getSettings(),
-        Storage.getApps(),
-        Storage.getFocusSessions(),
-        Storage.getSleepRecords(),
-        Storage.getPuzzleExtensions(),
-        Storage.getDailyBonusMinutes(),
-        Storage.getBlockRules(),
-        Storage.getActiveFocusSession(),
-      ]);
-      setSettings(s);
-      setApps(a);
-      setFocusSessions(f);
-      setSleepRecords(sl);
-      setPuzzleExtensions(pe);
-      setDailyBonusMinutes(db);
-      setBlockRules(br);
-      setActiveFocusSessionState(afs);
-      // Load blue light settings from UserSettings
-      setBlueLightEnabled(s.blueLightEnabled || false);
-      setBlueLightIntensity(s.blueLightIntensity || 50);
-      setBlueLightAutoSchedule(s.blueLightAutoSchedule || false);
-    } catch (e) {
-      console.error('Failed to load data', e);
-    } finally {
-      setIsLoading(false);
+  setIsLoading(true);
+  try {
+    const hasPermission = await UsageModule.hasUsagePermission();
+    if (!hasPermission) {
+      setApps([]);
+      return;
     }
-  }, []);
+
+    const appsData = await UsageModule.getTodayAppUsage();
+
+const formattedApps = appsData.map((app: any) => ({
+  id: app.packageName,
+  name: app.appName || app.packageName,
+  icon: 'apps',                     // default icon
+  iconFamily: 'Ionicons',
+  color: '#55e68a',                 // default color
+  category: 'App',
+  usageMinutes: Math.floor(app.time / (1000 * 60)),
+  dailyLimit: 0,
+  opens: 0,
+  notifications: 0,                 // use correct field name
+  isBlocked: false,
+  isShortForm: false,
+}));
+
+    setApps(formattedApps);
+  } catch (err) {
+    console.log("Real usage error:", err);
+  } finally {
+    setIsLoading(false);
+  }
+}, []);
 
   useEffect(() => {
     loadData();
