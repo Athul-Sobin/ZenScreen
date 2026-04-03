@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { UsageModule } from '@/lib/UsageModule';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Platform } from 'react-native';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,6 +11,8 @@ import Colors from '@/constants/colors';
 import { useWellbeing } from '@/lib/wellbeing-context';
 import ProgressRing from '@/components/ProgressRing';
 import UsageCard from '@/components/UsageCard';
+import UsageChart from '@/components/UsageChart';
+import SummaryCard from '@/components/SummaryCard';
 import * as Haptics from 'expo-haptics';
 
 function formatTime(minutes: number): string {
@@ -21,6 +23,8 @@ function formatTime(minutes: number): string {
 }
 
 export default function DashboardScreen() {
+  const [activeTab, setActiveTab] = useState<'screenTime' | 'sleep'>('screenTime');
+
   useEffect(() => {
     UsageModule.hello('Hello Android!', (response) => {
       console.log('ANDROID SAYS:', response);
@@ -28,7 +32,7 @@ export default function DashboardScreen() {
   }, []);
   const c = Colors.dark;
   const insets = useSafeAreaInsets();
-  const { apps, settings, totalScreenTime, totalOpens, totalNotifications, dailyBonusMinutes } = useWellbeing();
+  const { apps, settings, totalScreenTime, totalOpens, totalNotifications, dailyBonusMinutes, weeklyAverages } = useWellbeing();
   const topInset = Platform.OS === 'web' ? 67 : insets.top;
 
   const dailyGoal = settings.dailyGoalMinutes + dailyBonusMinutes;
@@ -145,6 +149,103 @@ export default function DashboardScreen() {
           <Feather name="chevron-right" size={16} color={c.textMuted} />
         </Pressable>
 
+        {/* Weekly Overview Section */}
+        <View style={styles.sectionHeader}>
+          <Text style={[styles.sectionTitle, { color: c.text }]}>Weekly Overview</Text>
+          <Text style={[styles.sectionSub, { color: c.textMuted }]}>7-day trends</Text>
+        </View>
+
+        {/* Tab Selector */}
+        <View style={styles.tabContainer}>
+          <Pressable
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setActiveTab('screenTime');
+            }}
+            style={[
+              styles.tab,
+              activeTab === 'screenTime' && [styles.activeTab, { backgroundColor: c.tintLight }]
+            ]}
+          >
+            <Ionicons
+              name="phone-portrait-outline"
+              size={16}
+              color={activeTab === 'screenTime' ? c.tint : c.textMuted}
+            />
+            <Text style={[
+              styles.tabText,
+              { color: activeTab === 'screenTime' ? c.tint : c.textMuted }
+            ]}>
+              Screen Time
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setActiveTab('sleep');
+            }}
+            style={[
+              styles.tab,
+              activeTab === 'sleep' && [styles.activeTab, { backgroundColor: c.purpleLight }]
+            ]}
+          >
+            <Ionicons
+              name="moon-outline"
+              size={16}
+              color={activeTab === 'sleep' ? c.purple : c.textMuted}
+            />
+            <Text style={[
+              styles.tabText,
+              { color: activeTab === 'sleep' ? c.purple : c.textMuted }
+            ]}>
+              Sleep
+            </Text>
+          </Pressable>
+        </View>
+
+        {/* Summary Cards */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.summaryCardsContainer}
+        >
+          {activeTab === 'screenTime' && weeklyAverages?.screenTime && (
+            <SummaryCard
+              data={weeklyAverages.screenTime}
+              title="Daily Usage"
+              icon="phone-portrait"
+              color={c.tint}
+            />
+          )}
+          {activeTab === 'sleep' && weeklyAverages?.sleep && (
+            <SummaryCard
+              data={weeklyAverages.sleep}
+              title="Sleep Duration"
+              icon="moon"
+              color={c.purple}
+            />
+          )}
+          <SummaryCard
+            data={activeTab === 'screenTime' ? (weeklyAverages?.screenTime || []) : (weeklyAverages?.sleep || [])}
+            title="Weekly Average"
+            icon="trending-up"
+            color={c.accent}
+            showWeeklyAverage={true}
+          />
+        </ScrollView>
+
+        {/* Chart */}
+        {weeklyAverages && (
+          <View style={styles.chartContainer}>
+            <UsageChart
+              data={activeTab === 'screenTime' ? weeklyAverages.screenTime : weeklyAverages.sleep}
+              title={`${activeTab === 'screenTime' ? 'Screen Time' : 'Sleep Duration'} (7 days)`}
+              color={activeTab === 'screenTime' ? c.tint : c.purple}
+            />
+          </View>
+        )}
+
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, { color: c.text }]}>Quick Actions</Text>
         </View>
@@ -212,4 +313,10 @@ const styles = StyleSheet.create({
   quickActions: { flexDirection: 'row', gap: 10 },
   quickAction: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 20, borderRadius: 16, gap: 8 },
   quickLabel: { fontSize: 12, fontFamily: 'DMSans_600SemiBold' },
+  tabContainer: { flexDirection: 'row', backgroundColor: c.surface, borderRadius: 12, padding: 4, marginBottom: 16 },
+  tab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 10, paddingHorizontal: 12, borderRadius: 8, gap: 6 },
+  activeTab: { shadowColor: c.tint, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2 },
+  tabText: { fontSize: 12, fontFamily: 'DMSans_600SemiBold' },
+  summaryCardsContainer: { paddingHorizontal: 4, gap: 12 },
+  chartContainer: { backgroundColor: c.surface, borderRadius: 16, padding: 16, marginBottom: 16 },
 });
