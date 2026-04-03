@@ -25,6 +25,7 @@ function RootLayoutNav() {
       <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
       <Stack.Screen name="usage/[appId]" options={{ animation: 'slide_from_right', presentation: 'card' }} />
       <Stack.Screen name="puzzle" options={{ animation: 'slide_from_bottom', presentation: 'card' }} />
+      <Stack.Screen name="blocked" options={{ animation: 'fade', presentation: 'modal' }} />
     </Stack>
   );
 }
@@ -55,17 +56,6 @@ function DailyResetAndSleepManager() {
     }
   };
 
-  // Check on mount
-  useEffect(() => {
-    checkAndResetDaily();
-  }, []);
-
-  // Monitor app state (foreground/background transitions)
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', handleAppStateChange);
-    return () => subscription.remove();
-  }, [handleAppStateChange]);
-
   const handleAppStateChange = useCallback(async (nextAppState: AppStateStatus) => {
     // When app comes to foreground, check if a new day has started
     if (appState !== 'active' && nextAppState === 'active') {
@@ -87,6 +77,17 @@ function DailyResetAndSleepManager() {
 
     setAppState(nextAppState);
   }, [appState, checkAndResetDaily, settings, saveSleepRecord]);
+
+  // Check on mount
+  useEffect(() => {
+    checkAndResetDaily();
+  }, []);
+
+  // Monitor app state (foreground/background transitions)
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => subscription.remove();
+  }, [handleAppStateChange]);
 
   return null; // This component doesn't render anything
 }

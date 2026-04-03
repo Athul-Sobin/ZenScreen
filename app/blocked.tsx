@@ -6,7 +6,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import Colors from '@/constants/colors';
 import { useWellbeing } from '@/lib/wellbeing-context';
-import { getRemainingTimeForApp } from '@/lib/blocking-service';
 
 /**
  * Blocked Screen

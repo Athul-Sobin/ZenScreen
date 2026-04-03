@@ -4,6 +4,7 @@ import { AppUsageData, FocusSession, SleepRecord, UserSettings, PuzzleExtension,
 import * as Storage from './storage';
 import { db } from './db';
 import { sleepLogs } from '../shared/schema';
+import { isAppBlocked, getRemainingTimeForApp, getBlockedReason } from './blocking-service';
 
 interface WellbeingContextValue {
   settings: UserSettings;
@@ -33,6 +34,7 @@ interface WellbeingContextValue {
   setActiveFocusSession: (session: FocusSession | null) => Promise<void>;
   saveSleepRecord: (record: SleepRecord) => Promise<void>;
   refreshData: () => Promise<void>;
+  checkBlockingEnforcement: (appId: string) => { isBlocked: boolean; reason: string; remainingTime: number };
 }
 
 const WellbeingContext = createContext<WellbeingContextValue | null>(null);
@@ -66,7 +68,6 @@ export function WellbeingProvider({ children }: { children: ReactNode }) {
   const [blueLightAutoSchedule, setBlueLightAutoSchedule] = useState(false);
   const [grayscaleEnabled, setGrayscaleEnabled] = useState(false);
   const [activeFocusSession, setActiveFocusSessionState] = useState<FocusSession | null>(null);
-  const isLoading = isLoading || appsLoading || sleepRecordsLoading;
 
   // Use useQuery for apps and sleepRecords
   const { data: apps = [], isLoading: appsLoading } = useQuery({
@@ -97,6 +98,9 @@ export function WellbeingProvider({ children }: { children: ReactNode }) {
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
+  // Compute isLoading based on all query states
+  const isLoading = appsLoading || sleepRecordsLoading;
+
   const loadData = useCallback(async () => {
     try {
       const [s, f, pe, dbm, br, afs] = await Promise.all([
@@ -120,8 +124,6 @@ export function WellbeingProvider({ children }: { children: ReactNode }) {
       setGrayscaleEnabled(s.grayscaleEnabled || false);
     } catch (e) {
       console.error('Failed to load data', e);
-    } finally {
-      setIsLoading(false);
     }
   }, []);
 
@@ -172,9 +174,13 @@ export function WellbeingProvider({ children }: { children: ReactNode }) {
   }, [settings]);
 
   const updateApp = useCallback(async (appId: string, updates: Partial<AppUsageData>) => {
-    setApps(prev => prev.map(a => a.id === appId ? { ...a, ...updates } : a));
+    // Update query data without modifying useState (since apps comes from useQuery)
+    queryClient.setQueryData(['apps'], (prev: AppUsageData[] | undefined) => {
+      if (!prev) return prev;
+      return prev.map((a: AppUsageData) => a.id === appId ? { ...a, ...updates } : a);
+    });
     await Storage.updateApp(appId, updates);
-  }, []);
+  }, [queryClient]);
 
   const saveFocusSessionCb = useCallback(async (session: FocusSession) => {
     setFocusSessions(prev => {
@@ -230,6 +236,31 @@ export function WellbeingProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const checkBlockingEnforcement = useCallback((appId: string) => {
+    // Retrieve current app usage for blocking check
+    const currentUsage = apps.reduce((sum, a) => sum + a.usageMinutes, 0);
+    const appUsageToday = apps.reduce((acc, a) => {
+      acc[a.id] = a.usageMinutes;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const blockingContext = {
+      rules: blockRules,
+      focusSession: activeFocusSession || undefined,
+      appUsageToday,
+    };
+
+    const isBlocked = isAppBlocked(appId, blockingContext);
+    const remainingTime = getRemainingTimeForApp(appId, blockingContext);
+    const reason = getBlockedReason(appId, blockingContext);
+
+    return {
+      isBlocked,
+      reason,
+      remainingTime,
+    };
+  }, [apps, blockRules, activeFocusSession]);
+
   const saveSleepRecordCb = useCallback(async (record: SleepRecord) => {
     try {
       // Insert into database
@@ -282,7 +313,8 @@ export function WellbeingProvider({ children }: { children: ReactNode }) {
     setActiveFocusSession: setActiveFocusSessionCb,
     saveSleepRecord: saveSleepRecordCb,
     refreshData: loadData,
-  }), [settings, apps, focusSessions, sleepRecords, puzzleExtensions, dailyBonusMinutes, blockRules, blueLightEnabled, blueLightIntensity, blueLightAutoSchedule, grayscaleEnabled, activeFocusSession, isLoading, totalScreenTime, totalOpens, totalNotifications, updateSettings, updateApp, saveFocusSessionCb, updatePuzzleExtensions, updateDailyBonus, updateBlockRules, updateBlueLightSettings, toggleGrayscale, setActiveFocusSessionCb, saveSleepRecordCb, loadData]);
+    checkBlockingEnforcement,
+  }), [settings, apps, focusSessions, sleepRecords, puzzleExtensions, dailyBonusMinutes, blockRules, blueLightEnabled, blueLightIntensity, blueLightAutoSchedule, grayscaleEnabled, activeFocusSession, isLoading, appsLoading, sleepRecordsLoading, totalScreenTime, totalOpens, totalNotifications, updateSettings, updateApp, saveFocusSessionCb, updatePuzzleExtensions, updateDailyBonus, updateBlockRules, updateBlueLightSettings, toggleGrayscale, setActiveFocusSessionCb, saveSleepRecordCb, loadData, checkBlockingEnforcement]);
 
   return (
     <WellbeingContext.Provider value={value}>
