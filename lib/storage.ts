@@ -141,7 +141,7 @@ export async function getDailyBonusMinutes(): Promise<number> {
 }
 
 export async function saveDailyBonusMinutes(minutes: number): Promise<void> {
-  await AsyncStorage.setItem(KEYS.DAILY_BONUS, JSON.stringify({ date: new Date().toDateString(), minutes }));
+  await AsyncStorage.setItem(KEYS.DAILY_BONUS, JSON.stringify({ date: new Date().toISOString().split('T')[0], minutes }));
 }
 
 export async function getUsedPuzzleIds(): Promise<string[]> {
@@ -149,7 +149,7 @@ export async function getUsedPuzzleIds(): Promise<string[]> {
     const data = await AsyncStorage.getItem(KEYS.USED_PUZZLE_IDS);
     if (data) {
       const parsed = JSON.parse(data);
-      const today = new Date().toDateString();
+      const today = new Date().toISOString().split('T')[0];
       if (parsed.date === today) return parsed.ids;
     }
     return [];
@@ -159,7 +159,7 @@ export async function getUsedPuzzleIds(): Promise<string[]> {
 }
 
 export async function saveUsedPuzzleIds(ids: string[]): Promise<void> {
-  await AsyncStorage.setItem(KEYS.USED_PUZZLE_IDS, JSON.stringify({ date: new Date().toDateString(), ids }));
+  await AsyncStorage.setItem(KEYS.USED_PUZZLE_IDS, JSON.stringify({ date: new Date().toISOString().split('T')[0], ids }));
 }
 
 export async function resetDailyData(): Promise<void> {
@@ -235,7 +235,7 @@ export async function getAppUsageToday(): Promise<Record<string, number>> {
     const data = await AsyncStorage.getItem(KEYS.APP_USAGE_TODAY);
     if (data) {
       const parsed = JSON.parse(data);
-      const today = new Date().toDateString();
+      const today = new Date().toISOString().split('T')[0];
       if (parsed.date === today) return parsed.usage;
     }
     return {};
@@ -248,7 +248,7 @@ export async function updateAppUsageToday(appId: string, additionalMinutes: numb
   try {
     const usage = await getAppUsageToday();
     usage[appId] = (usage[appId] || 0) + additionalMinutes;
-    await AsyncStorage.setItem(KEYS.APP_USAGE_TODAY, JSON.stringify({ date: new Date().toDateString(), usage }));
+    await AsyncStorage.setItem(KEYS.APP_USAGE_TODAY, JSON.stringify({ date: new Date().toISOString().split('T')[0], usage }));
   } catch {
     // Ignore errors
   }

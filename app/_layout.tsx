@@ -38,7 +38,8 @@ function DailyResetAndSleepManager() {
   const checkAndResetDaily = async () => {
     try {
       const lastResetDate = await Storage.getLastResetDate();
-      const today = new Date().toDateString();
+      // Use UTC date string to avoid timezone edge cases at midnight
+      const today = new Date().toISOString().split('T')[0];
       
       if (lastResetDate !== today) {
         // Day has changed, reset daily data
