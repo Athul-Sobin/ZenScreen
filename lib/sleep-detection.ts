@@ -1,5 +1,6 @@
 import { AppState, AppStateStatus } from 'react-native';
 import { SleepRecord } from './types';
+import { UserSettings } from './types';
 
 const SLEEP_DETECTION_THRESHOLD_MS = 2 * 60 * 60 * 1000; // 2 hours minimum for valid sleep session
 
@@ -15,7 +16,7 @@ interface SleepDetectionState {
  * Logic:
  * 1. When app goes to background, record timestamp
  * 2. When app returns to foreground, calculate session duration
- * 3. If duration >= 2 hours, likely sleep session - record it
+ * 3. If duration >= 2 hours AND overlaps with bedtime window, likely sleep session - record it
  * 4. Prompt user to confirm and rate quality (next screen load)
  */
 export class SleepDetectionService {
@@ -25,14 +26,14 @@ export class SleepDetectionService {
    * Handle app state change for sleep detection.
    * Call from AppState listener in app/_layout.tsx
    */
-  handleAppStateChange(nextAppState: AppStateStatus): SleepRecord | null {
+  handleAppStateChange(nextAppState: AppStateStatus, settings?: UserSettings): SleepRecord | null {
     if (nextAppState === 'background' || nextAppState === 'inactive') {
       this.state.appWentBackgroundAt = Date.now();
       return null;
     }
 
     if (nextAppState === 'active') {
-      const potentialSleepRecord = this.detectSleepSession();
+      const potentialSleepRecord = this.detectSleepSession(settings);
       this.state.appWentBackgroundAt = undefined;
       return potentialSleepRecord;
     }
@@ -41,10 +42,35 @@ export class SleepDetectionService {
   }
 
   /**
-   * Calculate if a sleep session occurred based on background duration.
+   * Check if current time is within the bedtime window.
    */
-  private detectSleepSession(): SleepRecord | null {
-    if (!this.state.appWentBackgroundAt) {
+  isWithinBedtimeWindow(settings: UserSettings): boolean {
+    if (!settings.sleepBedtime || !settings.sleepWakeTime) {
+      return false;
+    }
+
+    const now = new Date();
+    const currentTime = now.getHours() * 60 + now.getMinutes(); // minutes since midnight
+
+    const [bedHour, bedMin] = settings.sleepBedtime.split(':').map(Number);
+    const [wakeHour, wakeMin] = settings.sleepWakeTime.split(':').map(Number);
+    
+    const bedTime = bedHour * 60 + bedMin;
+    const wakeTime = wakeHour * 60 + wakeMin;
+
+    // Handle overnight sleep (bedtime after midnight, waketime next day)
+    if (bedTime > wakeTime) {
+      return currentTime >= bedTime || currentTime <= wakeTime;
+    } else {
+      return currentTime >= bedTime && currentTime <= wakeTime;
+    }
+  }
+
+  /**
+   * Calculate if a sleep session occurred based on background duration and bedtime window.
+   */
+  private detectSleepSession(settings?: UserSettings): SleepRecord | null {
+    if (!this.state.appWentBackgroundAt || !settings) {
       return null;
     }
 
@@ -52,6 +78,11 @@ export class SleepDetectionService {
 
     // Only consider sessions >= 2 hours (to avoid false positives)
     if (backgroundDuration < SLEEP_DETECTION_THRESHOLD_MS) {
+      return null;
+    }
+
+    // Only consider sessions that overlap with bedtime window
+    if (!this.isWithinBedtimeWindow(settings)) {
       return null;
     }
 

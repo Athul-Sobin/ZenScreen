@@ -1,6 +1,9 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, ReactNode } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AppUsageData, FocusSession, SleepRecord, UserSettings, PuzzleExtension, BlockRule } from './types';
 import * as Storage from './storage';
+import { db } from './db';
+import { sleepLogs } from '../shared/schema';
 
 interface WellbeingContextValue {
   settings: UserSettings;
@@ -35,6 +38,8 @@ interface WellbeingContextValue {
 const WellbeingContext = createContext<WellbeingContextValue | null>(null);
 
 export function WellbeingProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
+
   const [settings, setSettings] = useState<UserSettings>({
     onboardingComplete: false,
     warningMessage: '',
@@ -52,9 +57,7 @@ export function WellbeingProvider({ children }: { children: ReactNode }) {
     blueLightAutoSchedule: false,
     grayscaleEnabled: false,
   });
-  const [apps, setApps] = useState<AppUsageData[]>([]);
   const [focusSessions, setFocusSessions] = useState<FocusSession[]>([]);
-  const [sleepRecords, setSleepRecords] = useState<SleepRecord[]>([]);
   const [puzzleExtensions, setPuzzleExtensions] = useState<PuzzleExtension[]>([]);
   const [dailyBonusMinutes, setDailyBonusMinutes] = useState(0);
   const [blockRules, setBlockRules] = useState<BlockRule[]>([]);
@@ -63,26 +66,51 @@ export function WellbeingProvider({ children }: { children: ReactNode }) {
   const [blueLightAutoSchedule, setBlueLightAutoSchedule] = useState(false);
   const [grayscaleEnabled, setGrayscaleEnabled] = useState(false);
   const [activeFocusSession, setActiveFocusSessionState] = useState<FocusSession | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const isLoading = isLoading || appsLoading || sleepRecordsLoading;
+
+  // Use useQuery for apps and sleepRecords
+  const { data: apps = [], isLoading: appsLoading } = useQuery({
+    queryKey: ['apps'],
+    queryFn: Storage.getApps,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
+  const { data: sleepRecords = [], isLoading: sleepRecordsLoading } = useQuery({
+    queryKey: ['sleepRecords'],
+    queryFn: async () => {
+      try {
+        const records = await db.select().from(sleepLogs);
+        return records.map(record => ({
+          id: record.id,
+          startTime: record.startTime.getTime(),
+          endTime: record.endTime.getTime(),
+          durationMinutes: record.durationMinutes,
+          isAutoDetected: record.isAutoDetected,
+          qualityRating: record.qualityRating || undefined,
+        })) as SleepRecord[];
+      } catch (error) {
+        console.error('Failed to fetch sleep records from DB:', error);
+        // Fallback to storage if DB fails
+        return Storage.getSleepRecords();
+      }
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
 
   const loadData = useCallback(async () => {
     try {
-      const [s, a, f, sl, pe, db, br, afs] = await Promise.all([
+      const [s, f, pe, dbm, br, afs] = await Promise.all([
         Storage.getSettings(),
-        Storage.getApps(),
         Storage.getFocusSessions(),
-        Storage.getSleepRecords(),
         Storage.getPuzzleExtensions(),
         Storage.getDailyBonusMinutes(),
         Storage.getBlockRules(),
         Storage.getActiveFocusSession(),
       ]);
       setSettings(s);
-      setApps(a);
       setFocusSessions(f);
-      setSleepRecords(sl);
       setPuzzleExtensions(pe);
-      setDailyBonusMinutes(db);
+      setDailyBonusMinutes(dbm);
       setBlockRules(br);
       setActiveFocusSessionState(afs);
       // Load blue light settings from UserSettings
@@ -100,6 +128,42 @@ export function WellbeingProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Automation: Monitor time and auto-enable filters during bedtime
+  useEffect(() => {
+    if (!settings.blueLightAutoSchedule) return;
+
+    const checkBedtimeWindow = () => {
+      const now = new Date();
+      const currentTime = now.getHours() * 60 + now.getMinutes();
+
+      const [bedHour, bedMin] = settings.sleepBedtime.split(':').map(Number);
+      const [wakeHour, wakeMin] = settings.sleepWakeTime.split(':').map(Number);
+      
+      const bedTime = bedHour * 60 + bedMin;
+      const wakeTime = wakeHour * 60 + wakeMin;
+
+      let isInBedtimeWindow = false;
+      if (bedTime > wakeTime) {
+        isInBedtimeWindow = currentTime >= bedTime || currentTime <= wakeTime;
+      } else {
+        isInBedtimeWindow = currentTime >= bedTime && currentTime <= wakeTime;
+      }
+
+      if (isInBedtimeWindow) {
+        setBlueLightEnabled(true);
+        setGrayscaleEnabled(true);
+      }
+    };
+
+    // Check immediately
+    checkBedtimeWindow();
+
+    // Check every minute
+    const interval = setInterval(checkBedtimeWindow, 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [settings.blueLightAutoSchedule, settings.sleepBedtime, settings.sleepWakeTime]);
 
   const updateSettings = useCallback(async (updates: Partial<UserSettings>) => {
     const newSettings = { ...settings, ...updates };
@@ -167,9 +231,24 @@ export function WellbeingProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const saveSleepRecordCb = useCallback(async (record: SleepRecord) => {
-    setSleepRecords(prev => [...prev, record]);
-    await Storage.saveSleepRecord(record);
-  }, []);
+    try {
+      // Insert into database
+      await db.insert(sleepLogs).values({
+        id: record.id,
+        startTime: new Date(record.startTime),
+        endTime: new Date(record.endTime),
+        durationMinutes: record.durationMinutes,
+        isAutoDetected: record.isAutoDetected,
+        qualityRating: record.qualityRating,
+      });
+      // Invalidate and refetch sleep records
+      queryClient.invalidateQueries({ queryKey: ['sleepRecords'] });
+    } catch (error) {
+      console.error('Failed to save sleep record to DB:', error);
+      // Fallback to storage
+      await Storage.saveSleepRecord(record);
+    }
+  }, [queryClient]);
 
   const totalScreenTime = useMemo(() => apps.reduce((sum, a) => sum + a.usageMinutes, 0), [apps]);
   const totalOpens = useMemo(() => apps.reduce((sum, a) => sum + a.opens, 0), [apps]);

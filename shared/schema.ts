@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, boolean, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -11,10 +11,31 @@ export const users = pgTable("users", {
   password: text("password").notNull(),
 });
 
+export const sleepLogs = pgTable("sleep_logs", {
+  id: varchar("id").primaryKey(),
+  startTime: timestamp("start_time", { withTimezone: true }).notNull(),
+  endTime: timestamp("end_time", { withTimezone: true }).notNull(),
+  durationMinutes: integer("duration_minutes").notNull(),
+  isAutoDetected: boolean("is_auto_detected").notNull(),
+  qualityRating: integer("quality_rating"),
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
 });
 
+export const insertSleepLogSchema = createInsertSchema(sleepLogs).pick({
+  id: true,
+  startTime: true,
+  endTime: true,
+  durationMinutes: true,
+  isAutoDetected: true,
+  qualityRating: true,
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
+
+export type InsertSleepLog = z.infer<typeof insertSleepLogSchema>;
+export type SleepLog = typeof sleepLogs.$inferSelect;

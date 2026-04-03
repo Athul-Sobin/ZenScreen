@@ -1,7 +1,7 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AppState, AppStateStatus, View } from "react-native";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -64,9 +64,9 @@ function DailyResetAndSleepManager() {
   useEffect(() => {
     const subscription = AppState.addEventListener('change', handleAppStateChange);
     return () => subscription.remove();
-  }, []);
+  }, [handleAppStateChange]);
 
-  const handleAppStateChange = async (nextAppState: AppStateStatus) => {
+  const handleAppStateChange = useCallback(async (nextAppState: AppStateStatus) => {
     // When app comes to foreground, check if a new day has started
     if (appState !== 'active' && nextAppState === 'active') {
       await checkAndResetDaily();
@@ -74,7 +74,7 @@ function DailyResetAndSleepManager() {
 
     // Handle sleep detection on foreground return
     if (appState !== 'active' && nextAppState === 'active') {
-      const potentialSleepRecord = sleepService.handleAppStateChange(nextAppState);
+      const potentialSleepRecord = sleepService.handleAppStateChange(nextAppState, settings);
       if (potentialSleepRecord && settings.autoSleepDetectionEnabled) {
         // Save detected sleep session
         await saveSleepRecord(potentialSleepRecord);
@@ -82,11 +82,11 @@ function DailyResetAndSleepManager() {
       }
     } else {
       // App going to background
-      sleepService.handleAppStateChange(nextAppState);
+      sleepService.handleAppStateChange(nextAppState, settings);
     }
 
     setAppState(nextAppState);
-  };
+  }, [appState, checkAndResetDaily, settings, saveSleepRecord]);
 
   return null; // This component doesn't render anything
 }
