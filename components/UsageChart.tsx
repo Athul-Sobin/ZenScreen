@@ -20,7 +20,7 @@ interface UsageChartProps {
 export default function UsageChart({
   data,
   title,
-  color = Colors.dark.tint,
+  color = '#556B2F', // Earth Tones: Olive
   height = 200
 }: UsageChartProps) {
   const c = Colors.dark;

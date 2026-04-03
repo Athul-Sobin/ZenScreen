@@ -12,6 +12,7 @@ import { getSleepDetectionService } from "@/lib/sleep-detection";
 import { createBlueLightScheduler } from "@/lib/scheduler";
 import { BlueLightOverlay } from "@/components/BlueLightOverlay";
 import { DisplayFilterOverlay } from "@/components/DisplayFilterOverlay";
+import { registerBackgroundSleepDetection } from "@/lib/tasks";
 import { useFonts, DMSans_400Regular, DMSans_500Medium, DMSans_600SemiBold, DMSans_700Bold } from "@expo-google-fonts/dm-sans";
 import { StatusBar } from "expo-status-bar";
 
@@ -103,6 +104,8 @@ export default function RootLayout() {
   useEffect(() => {
     if (fontsLoaded) {
       SplashScreen.hideAsync();
+      // Register background sleep detection task
+      registerBackgroundSleepDetection();
     }
   }, [fontsLoaded]);
 

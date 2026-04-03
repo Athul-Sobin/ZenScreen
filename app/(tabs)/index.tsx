@@ -13,6 +13,7 @@ import ProgressRing from '@/components/ProgressRing';
 import UsageCard from '@/components/UsageCard';
 import UsageChart from '@/components/UsageChart';
 import SummaryCard from '@/components/SummaryCard';
+import DashboardSummaryCard from '@/components/DashboardSummaryCard';
 import * as Haptics from 'expo-haptics';
 
 function formatTime(minutes: number): string {
@@ -46,6 +47,14 @@ export default function DashboardScreen() {
   const today = new Date();
   const dayName = today.toLocaleDateString('en-US', { weekday: 'long' });
   const dateStr = today.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+  // Calculate dashboard summary metrics
+  const avgSleepHours = weeklyAverages?.sleep
+    ? weeklyAverages.sleep.reduce((sum, d) => sum + d.value, 0) / weeklyAverages.sleep.length / 60
+    : 0;
+  const totalScreenTimeMinutes = weeklyAverages?.screenTime
+    ? weeklyAverages.screenTime.reduce((sum, d) => sum + d.value, 0)
+    : 0;
 
   return (
     <View style={[styles.container, { backgroundColor: c.background }]}>
@@ -205,35 +214,59 @@ export default function DashboardScreen() {
         </View>
 
         {/* Summary Cards */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.summaryCardsContainer}
-        >
-          {activeTab === 'screenTime' && weeklyAverages?.screenTime && (
-            <SummaryCard
-              data={weeklyAverages.screenTime}
-              title="Daily Usage"
-              icon="phone-portrait"
-              color={c.tint}
+        <DashboardSummaryCard
+          avgSleepHours={avgSleepHours}
+          totalScreenTimeMinutes={totalScreenTimeMinutes}
+        />
+
+        {/* Tab Selector */}
+        <View style={styles.tabContainer}>
+          <Pressable
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setActiveTab('screenTime');
+            }}
+            style={[
+              styles.tab,
+              activeTab === 'screenTime' && [styles.activeTab, { backgroundColor: '#556B2F20' }]
+            ]}
+          >
+            <Ionicons
+              name="phone-portrait-outline"
+              size={16}
+              color={activeTab === 'screenTime' ? '#556B2F' : c.textMuted}
             />
-          )}
-          {activeTab === 'sleep' && weeklyAverages?.sleep && (
-            <SummaryCard
-              data={weeklyAverages.sleep}
-              title="Sleep Duration"
-              icon="moon"
-              color={c.purple}
+            <Text style={[
+              styles.tabText,
+              { color: activeTab === 'screenTime' ? '#556B2F' : c.textMuted }
+            ]}>
+              Screen Time
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setActiveTab('sleep');
+            }}
+            style={[
+              styles.tab,
+              activeTab === 'sleep' && [styles.activeTab, { backgroundColor: '#E2725B20' }]
+            ]}
+          >
+            <Ionicons
+              name="moon-outline"
+              size={16}
+              color={activeTab === 'sleep' ? '#E2725B' : c.textMuted}
             />
-          )}
-          <SummaryCard
-            data={activeTab === 'screenTime' ? (weeklyAverages?.screenTime || []) : (weeklyAverages?.sleep || [])}
-            title="Weekly Average"
-            icon="trending-up"
-            color={c.accent}
-            showWeeklyAverage={true}
-          />
-        </ScrollView>
+            <Text style={[
+              styles.tabText,
+              { color: activeTab === 'sleep' ? '#E2725B' : c.textMuted }
+            ]}>
+              Sleep
+            </Text>
+          </Pressable>
+        </View>
 
         {/* Chart */}
         {weeklyAverages && (
@@ -241,7 +274,7 @@ export default function DashboardScreen() {
             <UsageChart
               data={activeTab === 'screenTime' ? weeklyAverages.screenTime : weeklyAverages.sleep}
               title={`${activeTab === 'screenTime' ? 'Screen Time' : 'Sleep Duration'} (7 days)`}
-              color={activeTab === 'screenTime' ? c.tint : c.purple}
+              color={activeTab === 'screenTime' ? '#556B2F' : '#E2725B'}
             />
           </View>
         )}

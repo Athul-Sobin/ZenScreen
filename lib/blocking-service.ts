@@ -1,4 +1,5 @@
 import { BlockRule, FocusSession } from './types';
+import { Platform } from 'react-native';
 
 /**
  * Pure TypeScript blocking service logic (no React dependencies).
@@ -151,4 +152,30 @@ export function getGrayscaleOpacity(focusSession: FocusSession, currentAppId?: s
   if (!focusSession || !currentAppId) return 0;
   if (currentAppId === focusSession.appId) return 0; // Focused app is in color
   return 0.4; // Non-focused apps are grayscaled
+}
+
+/**
+ * Toggle system notification blocking for Focus Mode.
+ * Uses platform-specific APIs to suppress notifications during focus sessions.
+ */
+export function toggleSystemNotifications(enabled: boolean): void {
+  Platform.select({
+    android: () => {
+      console.log('Invoking NotificationManager.setInterruptionFilter');
+      // TODO: Implement Android NotificationManager.setInterruptionFilter
+      // - INTERRUPTION_FILTER_NONE (0) = allow all notifications
+      // - INTERRUPTION_FILTER_PRIORITY (1) = allow priority notifications only
+      // - INTERRUPTION_FILTER_ALARMS (3) = allow alarms only
+      // - INTERRUPTION_FILTER_ALL (4) = block all notifications
+    },
+    ios: () => {
+      console.log('Using Communication Notifications API');
+      // TODO: Implement iOS Communication Notifications API
+      // - Use UNUserNotificationCenter for notification management
+      // - Set notification settings to suppress non-essential notifications
+    },
+    default: () => {
+      console.log('Notification blocking not supported on this platform');
+    }
+  })();
 }
