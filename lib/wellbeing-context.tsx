@@ -3,8 +3,9 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AppUsageData, FocusSession, SleepRecord, UserSettings, PuzzleExtension, BlockRule } from './types';
 import * as Storage from './storage';
 import { db } from './db';
-import { sleepLogs } from '../shared/schema';
+import { sleepLogs, appUsageLogs } from '../shared/schema';
 import { isAppBlocked, getRemainingTimeForApp, getBlockedReason } from './blocking-service';
+import { useWeeklyAnalytics, WeeklyAverages } from './hooks/useAnalytics';
 
 interface WellbeingContextValue {
   settings: UserSettings;
@@ -19,6 +20,7 @@ interface WellbeingContextValue {
   blueLightAutoSchedule: boolean;
   grayscaleEnabled: boolean;
   activeFocusSession: FocusSession | null;
+  weeklyAverages: WeeklyAverages | null;
   isLoading: boolean;
   totalScreenTime: number;
   totalOpens: number;
@@ -33,6 +35,7 @@ interface WellbeingContextValue {
   toggleGrayscale: () => Promise<void>;
   setActiveFocusSession: (session: FocusSession | null) => Promise<void>;
   saveSleepRecord: (record: SleepRecord) => Promise<void>;
+  saveAppUsageLog: (appId: string, minutes: number) => Promise<void>;
   refreshData: () => Promise<void>;
   checkBlockingEnforcement: (appId: string) => { isBlocked: boolean; reason: string; remainingTime: number };
 }
@@ -97,6 +100,8 @@ export function WellbeingProvider({ children }: { children: ReactNode }) {
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
+
+  const { data: weeklyAverages = null } = useWeeklyAnalytics();
 
   // Compute isLoading based on all query states
   const isLoading = appsLoading || sleepRecordsLoading;
@@ -281,6 +286,22 @@ export function WellbeingProvider({ children }: { children: ReactNode }) {
     }
   }, [queryClient]);
 
+  const saveAppUsageLogCb = useCallback(async (appId: string, minutes: number) => {
+    try {
+      // Insert into app usage logs
+      await db.insert(appUsageLogs).values({
+        appId,
+        minutes,
+        timestamp: new Date(),
+      });
+      // Invalidate weekly analytics cache so it refetches
+      queryClient.invalidateQueries({ queryKey: ['weeklyAnalytics'] });
+    } catch (error) {
+      console.error('Failed to save app usage log to DB:', error);
+      // Optionally log to storage as fallback
+    }
+  }, [queryClient]);
+
   const totalScreenTime = useMemo(() => apps.reduce((sum, a) => sum + a.usageMinutes, 0), [apps]);
   const totalOpens = useMemo(() => apps.reduce((sum, a) => sum + a.opens, 0), [apps]);
   const totalNotifications = useMemo(() => apps.reduce((sum, a) => sum + a.notifications, 0), [apps]);
@@ -298,6 +319,7 @@ export function WellbeingProvider({ children }: { children: ReactNode }) {
     blueLightAutoSchedule,
     grayscaleEnabled,
     activeFocusSession,
+    weeklyAverages,
     isLoading,
     totalScreenTime,
     totalOpens,
@@ -312,9 +334,10 @@ export function WellbeingProvider({ children }: { children: ReactNode }) {
     toggleGrayscale,
     setActiveFocusSession: setActiveFocusSessionCb,
     saveSleepRecord: saveSleepRecordCb,
+    saveAppUsageLog: saveAppUsageLogCb,
     refreshData: loadData,
     checkBlockingEnforcement,
-  }), [settings, apps, focusSessions, sleepRecords, puzzleExtensions, dailyBonusMinutes, blockRules, blueLightEnabled, blueLightIntensity, blueLightAutoSchedule, grayscaleEnabled, activeFocusSession, isLoading, appsLoading, sleepRecordsLoading, totalScreenTime, totalOpens, totalNotifications, updateSettings, updateApp, saveFocusSessionCb, updatePuzzleExtensions, updateDailyBonus, updateBlockRules, updateBlueLightSettings, toggleGrayscale, setActiveFocusSessionCb, saveSleepRecordCb, loadData, checkBlockingEnforcement]);
+  }), [settings, apps, focusSessions, sleepRecords, puzzleExtensions, dailyBonusMinutes, blockRules, blueLightEnabled, blueLightIntensity, blueLightAutoSchedule, grayscaleEnabled, activeFocusSession, weeklyAverages, isLoading, appsLoading, sleepRecordsLoading, totalScreenTime, totalOpens, totalNotifications, updateSettings, updateApp, saveFocusSessionCb, updatePuzzleExtensions, updateDailyBonus, updateBlockRules, updateBlueLightSettings, toggleGrayscale, setActiveFocusSessionCb, saveSleepRecordCb, saveAppUsageLogCb, loadData, checkBlockingEnforcement]);
 
   return (
     <WellbeingContext.Provider value={value}>
