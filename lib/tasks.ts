@@ -1,6 +1,9 @@
+// @ts-ignore
 import * as TaskManager from 'expo-task-manager';
+// @ts-ignore
 import * as BackgroundFetch from 'expo-background-fetch';
-import { AppState, Platform } from 'react-native';
+import { AppState } from 'react-native';
+import { desc } from 'drizzle-orm'; // Fixed: Import desc helper
 import { db } from './db';
 import { sleepLogs } from '../shared/schema';
 
@@ -17,20 +20,23 @@ TaskManager.defineTask(BACKGROUND_SLEEP_DETECTION_TASK, async () => {
 
     if (currentState === 'background') {
       // Get the last sleep record to determine when background started
-      const lastSleepRecord = await db
+      const lastSleepRecords = await db
         .select()
         .from(sleepLogs)
-        .orderBy(sleepLogs.endTime, 'desc')
+        .orderBy(desc(sleepLogs.endTime)) // Fixed: Use desc() function instead of 'desc' string
         .limit(1);
 
       const now = Date.now();
       let backgroundStartTime = now - (15 * 60 * 1000); // Default to 15 minutes ago
 
-      if (lastSleepRecord.length > 0) {
-        const lastEndTime = lastSleepRecord[0].endTime.getTime();
-        // If last sleep ended recently, use that as potential background start
-        if (now - lastEndTime < 2 * 60 * 60 * 1000) { // Within 2 hours
-          backgroundStartTime = lastEndTime;
+      if (lastSleepRecords.length > 0) {
+        const lastRecord = lastSleepRecords[0];
+        if (lastRecord.endTime) {
+          const lastEndTime = new Date(lastRecord.endTime).getTime();
+          // If last sleep ended recently, use that as potential background start
+          if (now - lastEndTime < 2 * 60 * 60 * 1000) { // Within 2 hours
+            backgroundStartTime = lastEndTime;
+          }
         }
       }
 
@@ -47,17 +53,12 @@ TaskManager.defineTask(BACKGROUND_SLEEP_DETECTION_TASK, async () => {
           endTime: new Date(now),
           durationMinutes: Math.floor(backgroundDuration / (1000 * 60)),
           isAutoDetected: true,
-          qualityRating: null, // Will be calculated later
+          qualityRating: null, 
         };
 
         await db.insert(sleepLogs).values(sleepRecord);
 
-        console.log('[Background] Sleep record created:', {
-          duration: `${Math.floor(backgroundDuration / (1000 * 60))} minutes`,
-          startTime: new Date(backgroundStartTime).toISOString(),
-          endTime: new Date(now).toISOString(),
-        });
-
+        console.log('[Background] Sleep record created');
         return BackgroundFetch.BackgroundFetchResult.NewData;
       }
     }
@@ -72,17 +73,16 @@ TaskManager.defineTask(BACKGROUND_SLEEP_DETECTION_TASK, async () => {
 // Register the background task
 export async function registerBackgroundSleepDetection() {
   try {
-    // Check if task is already registered
     const isRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_SLEEP_DETECTION_TASK);
 
     if (!isRegistered) {
       console.log('[Background] Registering sleep detection task');
 
-      // Register for background fetch (runs every 15 minutes when app is backgrounded)
+      // Register for background fetch (runs every 15 mins when backgrounded)
       await BackgroundFetch.registerTaskAsync(BACKGROUND_SLEEP_DETECTION_TASK, {
         minimumInterval: 15 * 60, // 15 minutes
-        stopOnTerminate: false, // Continue when app terminates
-        startOnBoot: true, // Start when device boots
+        stopOnTerminate: false, 
+        startOnBoot: true, 
       });
 
       console.log('[Background] Sleep detection task registered successfully');
