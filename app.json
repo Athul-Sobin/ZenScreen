@@ -11,19 +11,27 @@
     "splash": {
       "image": "./assets/images/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0F1419"
+      "backgroundColor": "#F5F5DC" 
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.zenscreen"
+      "bundleIdentifier": "com.zenscreen",
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "fetch",
+          "processing"
+        ]
+      }
     },
     "android": {
       "package": "com.zenscreen",
+      "permissions": [
+        "RECEIVE_BOOT_COMPLETED",
+        "WAKE_LOCK"
+      ],
       "adaptiveIcon": {
-        "backgroundColor": "#0F1419",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "backgroundColor": "#F5F5DC",
+        "foregroundImage": "./assets/images/android-icon-foreground.png"
       }
     },
     "web": {
@@ -37,7 +45,10 @@
         }
       ],
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-sqlite",
+      "expo-task-manager",
+      "expo-background-fetch"
     ],
     "experiments": {
       "typedRoutes": true,
