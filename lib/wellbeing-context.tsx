@@ -13,6 +13,7 @@ interface WellbeingContextValue {
   blueLightEnabled: boolean;
   blueLightIntensity: number;
   blueLightAutoSchedule: boolean;
+  grayscaleEnabled: boolean;
   activeFocusSession: FocusSession | null;
   isLoading: boolean;
   totalScreenTime: number;
@@ -25,6 +26,7 @@ interface WellbeingContextValue {
   updateDailyBonus: (minutes: number) => Promise<void>;
   updateBlockRules: (rules: BlockRule[]) => Promise<void>;
   updateBlueLightSettings: (enabled: boolean, intensity: number, autoSchedule: boolean) => Promise<void>;
+  toggleGrayscale: () => Promise<void>;
   setActiveFocusSession: (session: FocusSession | null) => Promise<void>;
   saveSleepRecord: (record: SleepRecord) => Promise<void>;
   refreshData: () => Promise<void>;
@@ -41,6 +43,14 @@ export function WellbeingProvider({ children }: { children: ReactNode }) {
     sleepTrackingEnabled: true,
     bedtimeReminder: '22:00',
     wakeTimeReminder: '07:00',
+    sleepBedtime: '22:00',
+    sleepWakeTime: '07:00',
+    bedtimeReminderEnabled: true,
+    autoSleepDetectionEnabled: true,
+    blueLightEnabled: false,
+    blueLightIntensity: 50,
+    blueLightAutoSchedule: false,
+    grayscaleEnabled: false,
   });
   const [apps, setApps] = useState<AppUsageData[]>([]);
   const [focusSessions, setFocusSessions] = useState<FocusSession[]>([]);
@@ -51,6 +61,7 @@ export function WellbeingProvider({ children }: { children: ReactNode }) {
   const [blueLightEnabled, setBlueLightEnabled] = useState(false);
   const [blueLightIntensity, setBlueLightIntensity] = useState(50);
   const [blueLightAutoSchedule, setBlueLightAutoSchedule] = useState(false);
+  const [grayscaleEnabled, setGrayscaleEnabled] = useState(false);
   const [activeFocusSession, setActiveFocusSessionState] = useState<FocusSession | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -78,6 +89,7 @@ export function WellbeingProvider({ children }: { children: ReactNode }) {
       setBlueLightEnabled(s.blueLightEnabled || false);
       setBlueLightIntensity(s.blueLightIntensity || 50);
       setBlueLightAutoSchedule(s.blueLightAutoSchedule || false);
+      setGrayscaleEnabled(s.grayscaleEnabled || false);
     } catch (e) {
       console.error('Failed to load data', e);
     } finally {
@@ -139,6 +151,12 @@ export function WellbeingProvider({ children }: { children: ReactNode }) {
     });
   }, [updateSettings]);
 
+  const toggleGrayscale = useCallback(async () => {
+    const newValue = !grayscaleEnabled;
+    setGrayscaleEnabled(newValue);
+    await updateSettings({ grayscaleEnabled: newValue });
+  }, [grayscaleEnabled, updateSettings]);
+
   const setActiveFocusSessionCb = useCallback(async (session: FocusSession | null) => {
     setActiveFocusSessionState(session);
     if (session) {
@@ -168,6 +186,7 @@ export function WellbeingProvider({ children }: { children: ReactNode }) {
     blueLightEnabled,
     blueLightIntensity,
     blueLightAutoSchedule,
+    grayscaleEnabled,
     activeFocusSession,
     isLoading,
     totalScreenTime,
@@ -180,10 +199,11 @@ export function WellbeingProvider({ children }: { children: ReactNode }) {
     updateDailyBonus,
     updateBlockRules,
     updateBlueLightSettings,
+    toggleGrayscale,
     setActiveFocusSession: setActiveFocusSessionCb,
     saveSleepRecord: saveSleepRecordCb,
     refreshData: loadData,
-  }), [settings, apps, focusSessions, sleepRecords, puzzleExtensions, dailyBonusMinutes, blockRules, blueLightEnabled, blueLightIntensity, blueLightAutoSchedule, activeFocusSession, isLoading, totalScreenTime, totalOpens, totalNotifications, updateSettings, updateApp, saveFocusSessionCb, updatePuzzleExtensions, updateDailyBonus, updateBlockRules, updateBlueLightSettings, setActiveFocusSessionCb, saveSleepRecordCb, loadData]);
+  }), [settings, apps, focusSessions, sleepRecords, puzzleExtensions, dailyBonusMinutes, blockRules, blueLightEnabled, blueLightIntensity, blueLightAutoSchedule, grayscaleEnabled, activeFocusSession, isLoading, totalScreenTime, totalOpens, totalNotifications, updateSettings, updateApp, saveFocusSessionCb, updatePuzzleExtensions, updateDailyBonus, updateBlockRules, updateBlueLightSettings, toggleGrayscale, setActiveFocusSessionCb, saveSleepRecordCb, loadData]);
 
   return (
     <WellbeingContext.Provider value={value}>

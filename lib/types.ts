@@ -75,6 +75,7 @@ export interface UserSettings {
   blueLightEnabled: boolean;
   blueLightIntensity: number;
   blueLightAutoSchedule: boolean;
+  grayscaleEnabled: boolean;
 }
 
 export interface DailyStats {

@@ -11,6 +11,7 @@ import * as Storage from "@/lib/storage";
 import { getSleepDetectionService } from "@/lib/sleep-detection";
 import { createBlueLightScheduler } from "@/lib/scheduler";
 import { BlueLightOverlay } from "@/components/BlueLightOverlay";
+import { DisplayFilterOverlay } from "@/components/DisplayFilterOverlay";
 import { useFonts, DMSans_400Regular, DMSans_500Medium, DMSans_600SemiBold, DMSans_700Bold } from "@expo-google-fonts/dm-sans";
 import { StatusBar } from "expo-status-bar";
 
@@ -30,7 +31,7 @@ function RootLayoutNav() {
 
 // Component to handle daily reset, sleep detection, and blue light scheduling
 function DailyResetAndSleepManager() {
-  const { refreshData, settings, saveSleepRecord, blueLightEnabled, blueLightIntensity } = useWellbeing();
+  const { refreshData, settings, saveSleepRecord, blueLightEnabled, blueLightIntensity, grayscaleEnabled } = useWellbeing();
   const [appState, setAppState] = useState<AppStateStatus>(AppState.currentState);
   const sleepService = getSleepDetectionService();
   const scheduler = createBlueLightScheduler();
@@ -112,9 +113,7 @@ export default function RootLayout() {
         <GestureHandlerRootView style={{ flex: 1 }}>
             <WellbeingProvider>
               <DailyResetAndSleepManager />
-              <BlueLightOverlayWrapper />
-              <StatusBar style="light" />
-              <RootLayoutNav />
+              <DisplayFilterWrapper />
             </WellbeingProvider>
         </GestureHandlerRootView>
       </QueryClientProvider>
@@ -122,9 +121,9 @@ export default function RootLayout() {
   );
 }
 
-// Wrapper for blue light overlay that consumes context
-function BlueLightOverlayWrapper() {
-  const { blueLightEnabled, blueLightIntensity, settings } = useWellbeing();
+// Wrapper for display filters that consumes context
+function DisplayFilterWrapper() {
+  const { blueLightEnabled, blueLightIntensity, settings, grayscaleEnabled } = useWellbeing();
   const scheduler = createBlueLightScheduler();
   
   const isAutoScheduleActive = settings.blueLightAutoSchedule &&
@@ -136,9 +135,12 @@ function BlueLightOverlayWrapper() {
     });
 
   return (
-    <BlueLightOverlay 
-      enabled={blueLightEnabled || isAutoScheduleActive}
-      intensity={blueLightIntensity}
-    />
+    <DisplayFilterOverlay
+      blueLightEnabled={blueLightEnabled || isAutoScheduleActive}
+      grayscaleEnabled={grayscaleEnabled}
+    >
+      <StatusBar style="light" />
+      <RootLayoutNav />
+    </DisplayFilterOverlay>
   );
 }

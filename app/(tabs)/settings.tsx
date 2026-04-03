@@ -11,7 +11,7 @@ export default function SettingsScreen() {
   const c = Colors.dark;
   const insets = useSafeAreaInsets();
   const topInset = Platform.OS === 'web' ? 67 : insets.top;
-  const { settings, updateSettings, blueLightEnabled, blueLightIntensity, updateBlueLightSettings } = useWellbeing();
+  const { settings, updateSettings, blueLightEnabled, blueLightIntensity, updateBlueLightSettings, grayscaleEnabled, toggleGrayscale } = useWellbeing();
 
   const [editingWarning, setEditingWarning] = useState(false);
   const [warningDraft, setWarningDraft] = useState(settings.warningMessage);
@@ -304,6 +304,29 @@ export default function SettingsScreen() {
               }}
               trackColor={{ false: c.border, true: c.tintDark }}
               thumbColor={settings.blueLightAutoSchedule ? c.tint : c.textMuted}
+            />
+          </View>
+        </View>
+
+        <Text style={[styles.sectionLabel, { color: c.textMuted }]}>DISPLAY FILTERS</Text>
+
+        <View style={[styles.settingCard, { backgroundColor: c.surface }]}>
+          <View style={styles.settingRow}>
+            <View style={[styles.settingIcon, { backgroundColor: c.primaryLight }]}>
+              <Ionicons name="contrast-outline" size={18} color={c.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.settingTitle, { color: c.text }]}>Grayscale Filter</Text>
+              <Text style={[styles.settingValue, { color: c.textMuted }]}>Reduce distractions</Text>
+            </View>
+            <Switch
+              value={grayscaleEnabled}
+              onValueChange={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                toggleGrayscale();
+              }}
+              trackColor={{ false: c.border, true: c.tintDark }}
+              thumbColor={grayscaleEnabled ? c.tint : c.textMuted}
             />
           </View>
         </View>
