@@ -1,6 +1,6 @@
 import { drizzle } from "drizzle-orm/expo-sqlite";
 import { openDatabaseSync } from "expo-sqlite";
-import * as schema from "../shared/schema";
 
+// Strictly synchronous database initialization for mobile
 const expoDb = openDatabaseSync("zenscreen.db");
-export const db = drizzle(expoDb, { schema });
+export const db = drizzle(expoDb);

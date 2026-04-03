@@ -21,10 +21,10 @@ export default function LimitsScreen() {
 
     if (enabled) {
       newRules.push({
-        id: existingRule?.id || `rule_${appId}_${Date.now()}`,
         appId,
+        appName: apps.find(a => a.id === appId)?.name || 'Unknown App',
+        mode: 'time_limit',
         dailyLimitMinutes: limitMinutes,
-        isEnabled: true,
       });
     }
 
@@ -64,7 +64,7 @@ export default function LimitsScreen() {
         <View style={styles.appsList}>
           {apps.map(app => {
             const rule = getAppRule(app.id);
-            const isEnabled = !!rule?.isEnabled;
+            const isEnabled = rule?.mode !== "unrestricted";
             const limitMinutes = rule?.dailyLimitMinutes || 60;
 
             return (

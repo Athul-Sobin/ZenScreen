@@ -6,6 +6,7 @@ import { db } from './db';
 import { sleepLogs, appUsageLogs } from '../shared/schema';
 import { isAppBlocked, getRemainingTimeForApp, getBlockedReason } from './blocking-service';
 import { useWeeklyAnalytics, WeeklyAverages } from './hooks/useAnalytics';
+import * as Crypto from 'expo-crypto';
 
 interface WellbeingContextValue {
   settings: UserSettings;
@@ -290,6 +291,7 @@ export function WellbeingProvider({ children }: { children: ReactNode }) {
     try {
       // Insert into app usage logs
       await db.insert(appUsageLogs).values({
+        id: Crypto.randomUUID(),
         appId,
         minutes,
         timestamp: new Date(),
