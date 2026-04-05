@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { db } from '../db';
+import { getDb } from '../db';
+// REMOVED: const db = getDb(); - This was causing import-time database initialization
 import { sleepLogs, appUsageLogs } from '../../shared/schema';
 import { sql } from 'drizzle-orm';
 import { getDayName } from '../utils/date-utils';
@@ -20,6 +21,8 @@ export interface WeeklyAverages {
  */
 export async function getWeeklyAverage(): Promise<WeeklyAverages> {
   try {
+    // LAZY DATABASE INITIALIZATION - Only initialize when actually called
+    const db = getDb();
     // === SLEEP LOGS: 7-day average duration ===
     // Query: SELECT AVG(duration_minutes) grouped by date
     const sleepData = await db
@@ -62,7 +65,7 @@ export async function getWeeklyAverage(): Promise<WeeklyAverages> {
 
     // Map sleep data
     const sleepChart = dateRange.map(entry => {
-      const match = sleepData.find(s => s.date === entry.date);
+      const match = sleepData.find((s: { date: string; avgDuration: number }) => s.date === entry.date);
       return {
         day: entry.dayName,
         value: match?.avgDuration ?? 0,
@@ -71,7 +74,7 @@ export async function getWeeklyAverage(): Promise<WeeklyAverages> {
 
     // Map screen time data
     const screenChart = dateRange.map(entry => {
-      const match = screenTimeData.find(st => st.date === entry.date);
+      const match = screenTimeData.find((st: { date: string; totalMinutes: number }) => st.date === entry.date);
       return {
         day: entry.dayName,
         value: match?.totalMinutes ?? 0,

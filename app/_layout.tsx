@@ -1,3 +1,9 @@
+// import "@/lib/tasks";
+
+import { Slot } from "expo-router";
+
+console.log("LAYOUT START - FILE LOADED");
+
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
@@ -12,12 +18,11 @@ import { getSleepDetectionService } from "@/lib/sleep-detection";
 import { createBlueLightScheduler } from "@/lib/scheduler";
 import { BlueLightOverlay } from "@/components/BlueLightOverlay";
 import { DisplayFilterOverlay } from "@/components/DisplayFilterOverlay";
-import { registerBackgroundSleepDetection } from "@/lib/tasks";
-import { initializeDb } from "@/lib/db";
+//import { registerBackgroundSleepDetection } from "@/lib/tasks";
 import { useFonts, DMSans_400Regular, DMSans_500Medium, DMSans_600SemiBold, DMSans_700Bold } from "@expo-google-fonts/dm-sans";
 import { StatusBar } from "expo-status-bar";
 
-SplashScreen.preventAutoHideAsync();
+
 
 function RootLayoutNav() {
   return (
@@ -93,40 +98,12 @@ function DailyResetAndSleepManager() {
 
   return null; // This component doesn't render anything
 }
-
 export default function RootLayout() {
-  const [fontsLoaded] = useFonts({
-    DMSans_400Regular,
-    DMSans_500Medium,
-    DMSans_600SemiBold,
-    DMSans_700Bold,
-  });
-
-  useEffect(() => {
-    if (fontsLoaded) {
-      SplashScreen.hideAsync();
-      // Initialize database migrations
-      initializeDb();
-      // Register background sleep detection task
-      registerBackgroundSleepDetection();
-    }
-  }, [fontsLoaded]);
-
-  if (!fontsLoaded) return null;
-
-  return (
-    <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <GestureHandlerRootView style={{ flex: 1 }}>
-            <WellbeingProvider>
-              <DailyResetAndSleepManager />
-              <DisplayFilterWrapper />
-            </WellbeingProvider>
-        </GestureHandlerRootView>
-      </QueryClientProvider>
-    </ErrorBoundary>
-  );
+  console.log("ROOT LAYOUT RENDERED - SIMPLIFIED VERSION");
+  return <Slot />;
 }
+
+ 
 
 // Wrapper for display filters that consumes context
 function DisplayFilterWrapper() {

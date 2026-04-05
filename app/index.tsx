@@ -1,26 +1,21 @@
-import React, { useEffect } from 'react';
-import { View, StyleSheet, ActivityIndicator } from 'react-native';
-import { router } from 'expo-router';
+
+import React from 'react';
+import { View, StyleSheet, Text } from 'react-native';
 import Colors from '@/constants/colors';
-import { useWellbeing } from '@/lib/wellbeing-context';
+
+console.log("INDEX START - FILE LOADED");
 
 export default function IndexScreen() {
-  const { settings, isLoading } = useWellbeing();
+  console.log("INDEX START - COMPONENT RENDER");
+
   const c = Colors.dark;
 
-  useEffect(() => {
-    if (!isLoading) {
-      if (settings.onboardingComplete) {
-        router.replace('/(tabs)');
-      } else {
-        router.replace('/onboarding');
-      }
-    }
-  }, [isLoading, settings.onboardingComplete]);
+  console.log("INDEX - RENDERING STATIC UI");
 
   return (
     <View style={[styles.container, { backgroundColor: c.background }]}>
-      <ActivityIndicator size="large" color={c.tint} />
+      <Text style={{ color: c.text, fontSize: 24 }}>APP BOOTED SUCCESSFULLY</Text>
+      <Text style={{ color: c.textSecondary, fontSize: 16, marginTop: 10 }}>Import chain working - no crashes detected</Text>
     </View>
   );
 }
@@ -28,7 +23,7 @@ export default function IndexScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: 'center',
     justifyContent: 'center',
+    alignItems: 'center',
   },
 });

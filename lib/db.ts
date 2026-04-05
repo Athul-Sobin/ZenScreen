@@ -1,16 +1,14 @@
-import { drizzle } from "drizzle-orm/expo-sqlite";
 import { openDatabaseSync } from "expo-sqlite";
-import { migrate } from 'drizzle-orm/expo-sqlite/migrator';
+import { drizzle } from "drizzle-orm/expo-sqlite";
 
-// Strictly synchronous database initialization for mobile
-const expoDb = openDatabaseSync("zenscreen.db");
-export const db = drizzle(expoDb);
+let dbInstance: any = null;
 
-export const initializeDb = async () => {
-  try {
-    await migrate(db, { migrationsFolder: './drizzle' });
-    console.log('Database synced successfully');
-  } catch (e) {
-    console.error('Database migration failed:', e);
+export function getDb() {
+  if (!dbInstance) {
+    console.log("DB INIT START");
+    const expoDb = openDatabaseSync("zenscreen.db");
+    dbInstance = drizzle(expoDb);
+    console.log("DB INIT DONE");
   }
-};
+  return dbInstance;
+}

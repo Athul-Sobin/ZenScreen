@@ -2,11 +2,13 @@ import React, { createContext, useContext, useState, useEffect, useMemo, useCall
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AppUsageData, FocusSession, SleepRecord, UserSettings, PuzzleExtension, BlockRule } from './types';
 import * as Storage from './storage';
-import { db } from './db';
+import { getDb } from './db';
 import { sleepLogs, appUsageLogs } from '../shared/schema';
 import { isAppBlocked, getRemainingTimeForApp, getBlockedReason } from './blocking-service';
 import { useWeeklyAnalytics, WeeklyAverages } from './hooks/useAnalytics';
 import * as Crypto from 'expo-crypto';
+
+console.log("WELLBEING CONTEXT - FILE LOADED");
 
 interface WellbeingContextValue {
   settings: UserSettings;
@@ -44,6 +46,8 @@ interface WellbeingContextValue {
 const WellbeingContext = createContext<WellbeingContextValue | null>(null);
 
 export function WellbeingProvider({ children }: { children: ReactNode }) {
+  console.log("WELLBEING PROVIDER - FUNCTION START");
+
   const queryClient = useQueryClient();
 
   const [settings, setSettings] = useState<UserSettings>({
@@ -73,42 +77,72 @@ export function WellbeingProvider({ children }: { children: ReactNode }) {
   const [grayscaleEnabled, setGrayscaleEnabled] = useState(false);
   const [activeFocusSession, setActiveFocusSessionState] = useState<FocusSession | null>(null);
 
-  // Use useQuery for apps and sleepRecords
-  const { data: apps = [], isLoading: appsLoading } = useQuery({
-    queryKey: ['apps'],
-    queryFn: Storage.getApps,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-  });
+  // Add loading state for initial data load
+  const [initialDataLoading, setInitialDataLoading] = useState(true);
 
-  const { data: sleepRecords = [], isLoading: sleepRecordsLoading } = useQuery({
-    queryKey: ['sleepRecords'],
-    queryFn: async () => {
-      try {
-        const records = await db.select().from(sleepLogs);
-        return records.map(record => ({
-          id: record.id,
-          startTime: record.startTime.getTime(),
-          endTime: record.endTime.getTime(),
-          durationMinutes: record.durationMinutes,
-          isAutoDetected: record.isAutoDetected,
-          qualityRating: record.qualityRating || undefined,
-        })) as SleepRecord[];
-      } catch (error) {
-        console.error('Failed to fetch sleep records from DB:', error);
-        // Fallback to storage if DB fails
-        return Storage.getSleepRecords();
-      }
-    },
-    staleTime: 5 * 60 * 1000, // 5 minutes
-  });
+  // TEMPORARILY DISABLE DATABASE QUERIES - USE STORAGE ONLY
+  // const { data: apps = [], isLoading: appsLoading, error: appsError } = useQuery({
+  //   queryKey: ['apps'],
+  //   queryFn: Storage.getApps,
+  //   staleTime: 5 * 60 * 1000, // 5 minutes
+  //   retry: 1, // Retry once on failure
+  //   retryDelay: 1000, // Wait 1 second before retry
+  // });
 
-  const { data: weeklyAverages = null } = useWeeklyAnalytics();
+  // const { data: sleepRecords = [], isLoading: sleepRecordsLoading, error: sleepRecordsError } = useQuery({
+  //   queryKey: ['sleepRecords'],
+  //   queryFn: async () => {
+  //     try {
+  //       const records = await db.select().from(sleepLogs);
+  //       return records.map(record => ({
+  //         id: record.id,
+  //         startTime: record.startTime.getTime(),
+  //         endTime: record.endTime.getTime(),
+  //         durationMinutes: record.durationMinutes,
+  //         isAutoDetected: record.isAutoDetected,
+  //         qualityRating: record.qualityRating || undefined,
+  //       })) as SleepRecord[];
+  //     } catch (error) {
+  //       console.error('Failed to fetch sleep records from DB:', error);
+  //       // Fallback to storage if DB fails
+  //       
+  //     }
+  //   },
+  //   staleTime: 5 * 60 * 1000, // 5 minutes
+  //   retry: 1, // Retry once on failure
+  //   retryDelay: 1000, // Wait 1 second before retry
+  // });
 
-  // Compute isLoading based on all query states
-  const isLoading = appsLoading || sleepRecordsLoading;
+  // TEMPORARY: Use static data to isolate issues
+  const apps: AppUsageData[] = [];
+  const appsLoading = false;
+  const sleepRecords: SleepRecord[] = [];
+  const sleepRecordsLoading = false;
+
+  // const { data: weeklyAverages = null, isLoading: weeklyAnalyticsLoading } = useWeeklyAnalytics();
+  const weeklyAverages = null;
+  const weeklyAnalyticsLoading = false;
+
+  // Compute isLoading based on all query states and initial data loading
+  // isLoading becomes false when all async operations complete OR fail
+  const isLoading = initialDataLoading || appsLoading || sleepRecordsLoading || weeklyAnalyticsLoading;
+
+  // Debug logging for loading states
+  useEffect(() => {
+    console.log('WellbeingContext loading states:', {
+      initialDataLoading,
+      appsLoading,
+      sleepRecordsLoading,
+      weeklyAnalyticsLoading,
+      isLoading,
+    });
+  }, [initialDataLoading, appsLoading, sleepRecordsLoading, weeklyAnalyticsLoading, isLoading]);
 
   const loadData = useCallback(async () => {
+    console.log("WELLBEING - LOAD DATA START");
     try {
+      setInitialDataLoading(true);
+      console.log("WELLBEING - BEFORE Promise.all");
       const [s, f, pe, dbm, br, afs] = await Promise.all([
         Storage.getSettings(),
         Storage.getFocusSessions(),
@@ -117,6 +151,7 @@ export function WellbeingProvider({ children }: { children: ReactNode }) {
         Storage.getBlockRules(),
         Storage.getActiveFocusSession(),
       ]);
+      console.log("WELLBEING - AFTER Promise.all", { s, f, pe, dbm, br, afs });
       setSettings(s);
       setFocusSessions(f);
       setPuzzleExtensions(pe);
@@ -128,14 +163,33 @@ export function WellbeingProvider({ children }: { children: ReactNode }) {
       setBlueLightIntensity(s.blueLightIntensity || 50);
       setBlueLightAutoSchedule(s.blueLightAutoSchedule || false);
       setGrayscaleEnabled(s.grayscaleEnabled || false);
+      console.log("WELLBEING - LOAD DATA SUCCESS");
     } catch (e) {
-      console.error('Failed to load data', e);
+      console.error('WELLBEING - LOAD DATA FAILED:', e);
+      // Set default values on error to ensure app can still render
+      setSettings(prev => ({ ...prev, onboardingComplete: false }));
+    } finally {
+      setInitialDataLoading(false);
+      console.log("WELLBEING - LOAD DATA COMPLETE, initialDataLoading=false");
     }
   }, []);
 
   useEffect(() => {
+    console.log("WELLBEING - LOAD DATA EFFECT TRIGGERED");
     loadData();
   }, [loadData]);
+
+  // Safety timeout: Force loading to complete after 10 seconds to prevent infinite loading
+  useEffect(() => {
+    if (isLoading) {
+      const timeout = setTimeout(() => {
+        console.warn('Loading timeout reached, forcing loading state to complete');
+        setInitialDataLoading(false);
+      }, 10000); // 10 seconds
+
+      return () => clearTimeout(timeout);
+    }
+  }, [isLoading]);
 
   // Automation: Monitor time and auto-enable filters during bedtime
   useEffect(() => {
@@ -269,8 +323,10 @@ export function WellbeingProvider({ children }: { children: ReactNode }) {
 
   const saveSleepRecordCb = useCallback(async (record: SleepRecord) => {
     try {
-      // Insert into database
-      await db.insert(sleepLogs).values({
+      console.log("WELLBEING - saveSleepRecord: Attempting to save to DB");
+      // Insert into database - use getDb() to lazily initialize
+      const database = getDb();
+      await database.insert(sleepLogs).values({
         id: record.id,
         startTime: new Date(record.startTime),
         endTime: new Date(record.endTime),
@@ -278,10 +334,11 @@ export function WellbeingProvider({ children }: { children: ReactNode }) {
         isAutoDetected: record.isAutoDetected,
         qualityRating: record.qualityRating,
       });
+      console.log("WELLBEING - saveSleepRecord DB SUCCESS");
       // Invalidate and refetch sleep records
       queryClient.invalidateQueries({ queryKey: ['sleepRecords'] });
     } catch (error) {
-      console.error('Failed to save sleep record to DB:', error);
+      console.error('WELLBEING - saveSleepRecord DB FAILED, using fallback:', error);
       // Fallback to storage
       await Storage.saveSleepRecord(record);
     }
@@ -289,17 +346,20 @@ export function WellbeingProvider({ children }: { children: ReactNode }) {
 
   const saveAppUsageLogCb = useCallback(async (appId: string, minutes: number) => {
     try {
-      // Insert into app usage logs
-      await db.insert(appUsageLogs).values({
+      console.log("WELLBEING - saveAppUsageLog: Attempting to save to DB");
+      // Insert into app usage logs - use getDb() to lazily initialize
+      const database = getDb();
+      await database.insert(appUsageLogs).values({
         id: Crypto.randomUUID(),
         appId,
         minutes,
         timestamp: new Date(),
       });
+      console.log("WELLBEING - saveAppUsageLog DB SUCCESS");
       // Invalidate weekly analytics cache so it refetches
       queryClient.invalidateQueries({ queryKey: ['weeklyAnalytics'] });
     } catch (error) {
-      console.error('Failed to save app usage log to DB:', error);
+      console.error('WELLBEING - saveAppUsageLog DB FAILED:', error);
       // Optionally log to storage as fallback
     }
   }, [queryClient]);
@@ -339,7 +399,7 @@ export function WellbeingProvider({ children }: { children: ReactNode }) {
     saveAppUsageLog: saveAppUsageLogCb,
     refreshData: loadData,
     checkBlockingEnforcement,
-  }), [settings, apps, focusSessions, sleepRecords, puzzleExtensions, dailyBonusMinutes, blockRules, blueLightEnabled, blueLightIntensity, blueLightAutoSchedule, grayscaleEnabled, activeFocusSession, weeklyAverages, isLoading, appsLoading, sleepRecordsLoading, totalScreenTime, totalOpens, totalNotifications, updateSettings, updateApp, saveFocusSessionCb, updatePuzzleExtensions, updateDailyBonus, updateBlockRules, updateBlueLightSettings, toggleGrayscale, setActiveFocusSessionCb, saveSleepRecordCb, saveAppUsageLogCb, loadData, checkBlockingEnforcement]);
+  }), [settings, apps, focusSessions, sleepRecords, puzzleExtensions, dailyBonusMinutes, blockRules, blueLightEnabled, blueLightIntensity, blueLightAutoSchedule, grayscaleEnabled, activeFocusSession, weeklyAverages, isLoading, initialDataLoading, appsLoading, sleepRecordsLoading, weeklyAnalyticsLoading, totalScreenTime, totalOpens, totalNotifications, updateSettings, updateApp, saveFocusSessionCb, updatePuzzleExtensions, updateDailyBonus, updateBlockRules, updateBlueLightSettings, toggleGrayscale, setActiveFocusSessionCb, saveSleepRecordCb, saveAppUsageLogCb, loadData, checkBlockingEnforcement]);
 
   return (
     <WellbeingContext.Provider value={value}>

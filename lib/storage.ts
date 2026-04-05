@@ -2,6 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppUsageData, FocusSession, SleepRecord, UserSettings, PuzzleExtension, BlockRule } from './types';
 import { MOCK_APPS, generateWeeklySleepData } from './data';
 
+console.log("STORAGE MODULE LOADED");
+
 const KEYS = {
   SETTINGS: '@zenscreen_settings',
   APPS: '@zenscreen_apps',
@@ -31,6 +33,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   blueLightEnabled: false,
   blueLightIntensity: 0,
   blueLightAutoSchedule: false,
+  grayscaleEnabled: false,
 };
 
 export async function getSettings(): Promise<UserSettings> {
@@ -89,24 +92,13 @@ export async function saveFocusSession(session: FocusSession): Promise<void> {
   await AsyncStorage.setItem(KEYS.FOCUS_SESSIONS, JSON.stringify(sessions));
 }
 
-export async function getSleepRecords(): Promise<SleepRecord[]> {
-  try {
-    const data = await AsyncStorage.getItem(KEYS.SLEEP_RECORDS);
-    if (data) return JSON.parse(data);
-    const generated = generateWeeklySleepData();
-    await AsyncStorage.setItem(KEYS.SLEEP_RECORDS, JSON.stringify(generated));
-    return generated;
-  } catch {
-    return generateWeeklySleepData();
-  }
-}
 
 export async function getPuzzleExtensions(): Promise<PuzzleExtension[]> {
   try {
     const data = await AsyncStorage.getItem(KEYS.PUZZLE_EXTENSIONS);
     if (data) {
       const parsed = JSON.parse(data);
-      const today = new Date().toDateString();
+      const today = new Date().toISOString().split('T')[0];
       if (parsed.date === today) return parsed.extensions;
     }
     // If different day or no data, return fresh defaults with today's date
@@ -115,7 +107,7 @@ export async function getPuzzleExtensions(): Promise<PuzzleExtension[]> {
       { tier: 2, puzzlesRequired: 2, minutesEarned: 5, completed: false, puzzlesSolved: 0 },
       { tier: 3, puzzlesRequired: 3, minutesEarned: 5, completed: false, puzzlesSolved: 0 },
     ];
-    await AsyncStorage.setItem(KEYS.PUZZLE_EXTENSIONS, JSON.stringify({ date: new Date().toDateString(), extensions: defaults }));
+    await AsyncStorage.setItem(KEYS.PUZZLE_EXTENSIONS, JSON.stringify({ date: new Date().toISOString().split('T')[0], extensions: defaults }));
     return defaults;
   } catch {
     return [];
@@ -123,7 +115,7 @@ export async function getPuzzleExtensions(): Promise<PuzzleExtension[]> {
 }
 
 export async function savePuzzleExtensions(extensions: PuzzleExtension[]): Promise<void> {
-  await AsyncStorage.setItem(KEYS.PUZZLE_EXTENSIONS, JSON.stringify({ date: new Date().toDateString(), extensions }));
+  await AsyncStorage.setItem(KEYS.PUZZLE_EXTENSIONS, JSON.stringify({ date: new Date().toISOString().split('T')[0], extensions }));
 }
 
 export async function getDailyBonusMinutes(): Promise<number> {
@@ -131,7 +123,7 @@ export async function getDailyBonusMinutes(): Promise<number> {
     const data = await AsyncStorage.getItem(KEYS.DAILY_BONUS);
     if (data) {
       const parsed = JSON.parse(data);
-      const today = new Date().toDateString();
+      const today = new Date().toISOString().split('T')[0];
       if (parsed.date === today) return parsed.minutes;
     }
     return 0;
@@ -207,27 +199,6 @@ export async function clearActiveFocusSession(): Promise<void> {
   await AsyncStorage.removeItem(KEYS.ACTIVE_FOCUS_SESSION);
 }
 
-// Sleep Records (Feature #3 - Sleep Detection)
-export async function getSleepRecords(): Promise<SleepRecord[]> {
-  try {
-    const data = await AsyncStorage.getItem(KEYS.SLEEP_RECORDS);
-    return data ? JSON.parse(data) : [];
-  } catch {
-    return [];
-  }
-}
-
-export async function saveSleepRecord(record: SleepRecord): Promise<void> {
-  try {
-    const existing = await getSleepRecords();
-    // Append new record (auto-detected or manual)
-    const updated = [...existing, record];
-    await AsyncStorage.setItem(KEYS.SLEEP_RECORDS, JSON.stringify(updated));
-  } catch {
-    // Fallback: save just this record
-    await AsyncStorage.setItem(KEYS.SLEEP_RECORDS, JSON.stringify([record]));
-  }
-}
 
 // App Usage Tracking (Feature #5 - App Blocker)
 export async function getAppUsageToday(): Promise<Record<string, number>> {
